@@ -1,42 +1,189 @@
-name: GitBot - Dependency Update
+# =============================================================================
+# AUTO DEPENDENCY UPDATE - POWERFULLY GITHUB ACTIONS BOT
+# =============================================================================
+# Replaces Dependabot with more powerful automation:
+# - Daily auto-update (no PR, direct commit)
+# - Security audit before commit
+# - Test validation
+# - One bot to rule them all 
+
+name: "🤖 Auto Update Dependencies"
 
 on:
   schedule:
-    - cron: "0 3 * * 1" # weekly, Monday 03:00 UTC
-  workflow_dispatch:
+    - cron: '0 0 * * *'  # Daily at 8 AM Singapore time (00:00 UTC)
+  workflow_dispatch:       # Manual trigger
+    inputs:
+      force_update:
+        description: 'Force update even if tests fail'
+        required: false
+        default: 'false'
+      strategy:
+        description: 'Update strategy: direct (push to main) or pr (open a pull request)'
+        required: false
+        default: 'direct'
 
 permissions:
   contents: write
+  actions: read
+  pull-requests: write
+
+env:
+  CARGO_TERM_COLOR: always
+  UPDATE_STRATEGY: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.strategy || 'direct' }}
 
 jobs:
-  cargo_update:
-    name: cargo update (direct commit)
+  auto-update:
+    name: "🔄 Update Rust Dependencies"
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-      - name: Install Rust toolchain
+      - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
-      - name: Update Cargo.lock
-        run: cargo update
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
 
-      - name: Build (debug)
-        run: cargo build
-
-      - name: Commit changes
-        shell: bash
+      - name: Check current versions
         run: |
-          set -euo pipefail
-          if git diff --quiet -- Cargo.lock; then
-            echo "No dependency changes."
-            exit 0
+          echo "Current dependency versions:"
+          cargo tree --depth 1 || true
+
+      - name: Update dependencies
+        run: |
+          echo "Updating Cargo.lock..."
+          cargo update
+
+          echo ""
+          echo "Updated dependency tree:"
+          cargo tree --depth 1 || true
+
+      - name: Security audit
+        run: |
+          echo "Running security audit..."
+          cargo install cargo-audit --locked || true
+          cargo audit || echo "Audit warnings detected (non-blocking)"
+        continue-on-error: true
+
+      - name: Build project
+        run: |
+          echo "Building with updated dependencies..."
+          cargo build --release
+
+          echo ""
+          echo "Build successful with updated deps"
+
+      - name: Run tests
+        run: |
+          echo "Running test suite..."
+          cargo test --all
+
+          echo ""
+          echo "All tests passed"
+        continue-on-error: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.force_update == 'true' }}
+
+      - name: Quick clippy check
+        run: |
+          echo "Running clippy sanity check..."
+          cargo clippy --all-targets -- -D warnings || echo "Clippy warnings (non-blocking)"
+        continue-on-error: true
+
+      - name: Configure Git
+        run: |
+          echo "Configuring Git for bot commits..."
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          echo "Git configured"
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if [[ -z "$(git status --porcelain)" ]]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No updates needed"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Updates detected"
+            echo ""
+            echo "Changed files:"
+            git status --porcelain
+            echo ""
+            echo "Diff stat:"
+            git diff --stat
           fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Cargo.lock
-          git commit -m "chore(deps): cargo update"
-          git push
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true' && env.UPDATE_STRATEGY == 'direct'
+        run: |
+          git add -A
+
+          git commit -s \
+            -m "chore(deps): auto-update dependencies" \
+            -m "" \
+            -m "Automated update run by GitHub Actions." \
+            -m "Includes any repository changes produced by the update pipeline (deps, workflows, src, etc.)."
+
+          git push origin main
+
+          echo ""
+          echo "Dependencies updated and pushed to main"
+          echo "Commit: $(git rev-parse HEAD)"
+
+      - name: Create pull request
+        id: cpr
+        if: steps.check_changes.outputs.changed == 'true' && env.UPDATE_STRATEGY == 'pr'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(deps): auto-update dependencies"
+          title: "chore(deps): auto-update dependencies"
+          body: |
+            Automated update run by GitHub Actions.
+
+            This PR may include dependency, workflow, and source updates produced by the update pipeline.
+          branch: bot/auto-update
+          delete-branch: true
+          signoff: true
+
+      - name: Summary
+        run: |
+          echo "----------------------------------------"
+          echo "AUTO-UPDATE SUMMARY"
+          echo "----------------------------------------"
+
+          echo "Strategy: ${{ env.UPDATE_STRATEGY }}"
+
+          if [ "${{ steps.check_changes.outputs.changed }}" == "true" ]; then
+            echo "Updates detected"
+            echo "Security audit ran"
+            echo "Tests ran (or were forced)"
+
+            if [ "${{ env.UPDATE_STRATEGY }}" == "direct" ]; then
+              echo "Changes pushed to main"
+            else
+              echo "Pull request created/updated"
+              echo "PR: ${{ steps.cpr.outputs.pull-request-url }}"
+            fi
+          else
+            echo "No updates needed - all dependencies current"
+          fi
+
+          echo "----------------------------------------"
+          echo ""
+          echo "Next run: Tomorrow 00:00 UTC (07:00 WIB / 08:00 SGT)"
+          echo "Manual trigger: Actions -> Auto Update Dependencies -> Run workflow"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
