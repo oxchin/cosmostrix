@@ -7,6 +7,9 @@ pub struct Frame {
     pub width: u16,
     pub height: u16,
     pub cells: Vec<Cell>,
+    dirty_all: bool,
+    dirty_map: Vec<bool>,
+    dirty: Vec<usize>,
 }
 
 impl Frame {
@@ -16,6 +19,9 @@ impl Frame {
             width,
             height,
             cells: vec![Cell::blank_with_bg(bg); len],
+            dirty_all: true,
+            dirty_map: vec![false; len],
+            dirty: Vec::new(),
         }
     }
 
@@ -23,6 +29,32 @@ impl Frame {
         for cell in &mut self.cells {
             *cell = Cell::blank_with_bg(bg);
         }
+        self.dirty_all = true;
+        self.dirty.clear();
+    }
+
+    pub fn is_dirty_all(&self) -> bool {
+        self.dirty_all
+    }
+
+    pub fn dirty_indices(&self) -> &[usize] {
+        &self.dirty
+    }
+
+    pub fn clear_dirty(&mut self) {
+        if self.dirty_all {
+            self.dirty_all = false;
+            self.dirty_map.fill(false);
+            self.dirty.clear();
+            return;
+        }
+
+        for &i in &self.dirty {
+            if let Some(v) = self.dirty_map.get_mut(i) {
+                *v = false;
+            }
+        }
+        self.dirty.clear();
     }
 
     pub fn index(&self, x: u16, y: u16) -> Option<usize> {
@@ -38,7 +70,15 @@ impl Frame {
 
     pub fn set(&mut self, x: u16, y: u16, cell: Cell) {
         if let Some(i) = self.index(x, y) {
+            if self.cells.get(i).copied() == Some(cell) {
+                return;
+            }
+
             self.cells[i] = cell;
+            if !self.dirty_all && self.dirty_map.get(i).copied() == Some(false) {
+                self.dirty_map[i] = true;
+                self.dirty.push(i);
+            }
         }
     }
 }

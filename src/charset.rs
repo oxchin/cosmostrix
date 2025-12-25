@@ -13,7 +13,6 @@ impl Charset {
     pub const KATAKANA: Charset = Charset(0x8);
     pub const GREEK: Charset = Charset(0x10);
     pub const CYRILLIC: Charset = Charset(0x20);
-    pub const ARABIC: Charset = Charset(0x40);
     pub const HEBREW: Charset = Charset(0x80);
     pub const BINARY: Charset = Charset(0x100);
     pub const HEX: Charset = Charset(0x200);
@@ -23,6 +22,8 @@ impl Charset {
 
     pub const DEFAULT: Charset = Charset(0x7);
     pub const EXTENDED_DEFAULT: Charset = Charset(0xE);
+    pub const ASCII_SAFE: Charset = Charset(0x3);
+    pub const MATRIX: Charset = Charset(0xB);
 
     pub fn contains(self, other: Charset) -> bool {
         (self.0 & other.0) != 0
@@ -49,21 +50,21 @@ pub fn charset_from_str(spec: &str, default_to_ascii: bool) -> Result<Charset, S
     let spec = spec.trim().to_ascii_lowercase();
     match spec.as_str() {
         "auto" => Ok(if default_to_ascii {
-            Charset::DEFAULT
+            Charset::ASCII_SAFE
         } else {
-            Charset::EXTENDED_DEFAULT
+            Charset::MATRIX
         }),
+        "matrix" => Ok(Charset::MATRIX),
         "ascii" => Ok(Charset::DEFAULT),
         "extended" => Ok(Charset::EXTENDED_DEFAULT),
         "english" => Ok(Charset::ENGLISH_LETTERS),
         "digits" | "dec" | "decimal" => Ok(Charset::ENGLISH_DIGITS),
         "punc" => Ok(Charset::ENGLISH_PUNCTUATION),
-        "bin" | "binary" => Ok(Charset::BINARY),
+        "bin" | "binary" | "01" => Ok(Charset::BINARY),
         "hex" | "hexadecimal" => Ok(Charset::HEX),
         "katakana" => Ok(Charset::KATAKANA),
         "greek" => Ok(Charset::GREEK),
         "cyrillic" => Ok(Charset::CYRILLIC),
-        "arabic" => Ok(Charset::ARABIC),
         "hebrew" => Ok(Charset::HEBREW),
         "devanagari" => Ok(Charset::DEVANAGARI),
         "braille" => Ok(Charset::BRAILLE),
@@ -116,16 +117,13 @@ pub fn build_chars(
         push_range(&mut out, 0x7B, 0x7E);
     }
     if charset.contains(Charset::KATAKANA) {
-        push_range(&mut out, 0xFF64, 0xFF9F);
+        push_range(&mut out, 0xFF66, 0xFF9F);
     }
     if charset.contains(Charset::GREEK) {
         push_range(&mut out, 0x0370, 0x03FF);
     }
     if charset.contains(Charset::CYRILLIC) {
         push_range(&mut out, 0x0410, 0x044F);
-    }
-    if charset.contains(Charset::ARABIC) {
-        push_range(&mut out, 0x0627, 0x0649);
     }
     if charset.contains(Charset::HEBREW) {
         push_range(&mut out, 0x0590, 0x05FF);

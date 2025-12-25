@@ -775,15 +775,24 @@ impl Cloud {
                 continue;
             }
 
-            let (col, start_line, hp, cp_idx, free_col) = {
+            let (col, start_line, hp, cp_idx, free_col, died) = {
                 let d = &mut self.droplets[i];
                 let free_col = d.advance(now, self.lines);
                 let col = d.bound_col;
                 let start_line = d.tail_put_line.map(|v| v + 1).unwrap_or(0);
                 let hp = d.head_put_line;
                 let cp_idx = d.char_pool_idx;
-                (col, start_line, hp, cp_idx, free_col)
+                let died = !d.is_alive;
+                (col, start_line, hp, cp_idx, free_col, died)
             };
+
+            if died {
+                if let Some(cs) = self.col_stat.get_mut(col as usize) {
+                    cs.num_droplets = cs.num_droplets.saturating_sub(1);
+                    cs.can_spawn = true;
+                }
+                continue;
+            }
 
             if free_col {
                 self.set_column_spawn(col, true);
@@ -795,7 +804,7 @@ impl Cloud {
         }
 
         // Draw pass (split-borrows via DrawCtx)
-        let draw_everything = self.force_draw_everything;
+        let draw_everything = self.force_draw_everything || time_for_glitch;
         let ctx = DrawCtx {
             lines: self.lines,
             full_width: self.full_width,
@@ -813,18 +822,16 @@ impl Cloud {
         };
 
         for d in &mut self.droplets {
-            if !d.is_alive {
-                continue;
+            let needs_tail_cleanup = !d.is_alive
+                && d.bound_col != u16::MAX
+                && d.tail_put_line.is_some_and(|tp| d.tail_cur_line != tp);
+
+            if d.is_alive || needs_tail_cleanup {
+                d.draw(&ctx, frame, now, draw_everything);
             }
-            d.draw(&ctx, frame, now, draw_everything);
 
             if !d.is_alive {
-                if let Some(cs) = self.col_stat.get_mut(d.bound_col as usize) {
-                    cs.num_droplets = cs.num_droplets.saturating_sub(1);
-                    if d.tail_put_line.unwrap_or(0) <= self.lines / 4 {
-                        cs.can_spawn = true;
-                    }
-                }
+                d.bound_col = u16::MAX;
             }
         }
 

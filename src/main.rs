@@ -337,22 +337,23 @@ fn main() -> std::io::Result<()> {
             }
         }
 
-        cloud.rain(&mut frame);
-        term.draw(&frame)?;
+    cloud.rain(&mut frame);
+    term.draw(&mut frame)?;
 
-        let cur = std::time::Instant::now();
-        let elapsed = cur.duration_since(prev);
-        let calc_delay = if elapsed >= target_period {
-            Duration::from_nanos(0)
-        } else {
-            target_period - elapsed
-        };
+    let cur = std::time::Instant::now();
+    let elapsed = cur.duration_since(prev);
+    let calc_delay = if elapsed >= target_period {
+        Duration::from_nanos(0)
+    } else {
+        target_period - elapsed
+    };
 
-        let cur_delay = (prev_delay.mul_f32(7.0) + calc_delay).div_f32(8.0);
-        std::thread::sleep(cur_delay);
-        prev = cur;
-        prev_delay = cur_delay;
-    }
+    let cur_delay = (prev_delay.mul_f32(7.0) + calc_delay).div_f32(8.0);
+    std::thread::sleep(cur_delay);
+    prev = cur;
+    prev_delay = cur_delay;
+}
 
-    Ok(())
+Ok(())
+
 }

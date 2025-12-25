@@ -93,7 +93,7 @@ pub struct Args {
     #[arg(long = "shortpct", default_value_t = 50.0)]
     pub shortpct: f32,
 
-    #[arg(long = "charset", default_value = "auto")]
+    #[arg(long = "charset", default_value = "binary")]
     pub charset: String,
 
     #[arg(long = "chars")]

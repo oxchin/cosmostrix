@@ -44,10 +44,11 @@ impl Terminal {
         event::read()
     }
 
-    pub fn draw(&mut self, frame: &Frame) -> Result<()> {
+    pub fn draw(&mut self, frame: &mut Frame) -> Result<()> {
         let mut cur_fg: Option<Color> = None;
         let mut cur_bg: Option<Color> = None;
         let mut cur_bold: bool = false;
+        let mut cur_pos: Option<(u16, u16)> = None;
 
         let needs_full_redraw = self
             .last
@@ -60,25 +61,78 @@ impl Terminal {
                 .queue(terminal::Clear(terminal::ClearType::All))?;
         }
 
-        for y in 0..frame.height {
-            for x in 0..frame.width {
-                let idx = y as usize * frame.width as usize + x as usize;
-                let cell = frame.cells[idx];
-                let changed = if needs_full_redraw {
-                    true
-                } else {
-                    self.last
-                        .as_ref()
-                        .and_then(|l| l.cells.get(idx).copied())
-                        .map(|prev| prev != cell)
-                        .unwrap_or(true)
-                };
+        let can_reuse_last = !needs_full_redraw && self.last.is_some();
+        let do_full_redraw = !can_reuse_last || frame.is_dirty_all();
 
-                if !changed {
-                    continue;
+        if do_full_redraw {
+            for y in 0..frame.height {
+                for x in 0..frame.width {
+                    let idx = y as usize * frame.width as usize + x as usize;
+                    let cell = frame.cells[idx];
+
+                    self.stdout.queue(cursor::MoveTo(x, y))?;
+
+                    if cell.fg != cur_fg {
+                        if let Some(fg) = cell.fg {
+                            self.stdout.queue(SetForegroundColor(fg))?;
+                        } else {
+                            self.stdout.queue(SetForegroundColor(Color::Reset))?;
+                        }
+                        cur_fg = cell.fg;
+                    }
+
+                    if cell.bg != cur_bg {
+                        if let Some(bg) = cell.bg {
+                            self.stdout.queue(SetBackgroundColor(bg))?;
+                        } else {
+                            self.stdout.queue(SetBackgroundColor(Color::Reset))?;
+                        }
+                        cur_bg = cell.bg;
+                    }
+
+                    if cell.bold != cur_bold {
+                        self.stdout.queue(SetAttribute(if cell.bold {
+                            Attribute::Bold
+                        } else {
+                            Attribute::NormalIntensity
+                        }))?;
+                        cur_bold = cell.bold;
+                    }
+
+                    let mut buf = [0u8; 4];
+                    let s = cell.ch.encode_utf8(&mut buf);
+                    self.stdout.queue(Print(s))?;
                 }
+            }
 
+            self.stdout.queue(SetAttribute(Attribute::Reset))?;
+            self.stdout.queue(ResetColor)?;
+            self.stdout.flush()?;
+
+            self.last = Some(frame.clone());
+            frame.clear_dirty();
+            return Ok(());
+        }
+
+        let last = self.last.as_mut().expect("checked above");
+
+        for &idx in frame.dirty_indices() {
+            let cell = frame.cells.get(idx).copied().unwrap_or(crate::cell::Cell {
+                ch: ' ',
+                fg: None,
+                bg: None,
+                bold: false,
+            });
+            if last.cells.get(idx).copied() == Some(cell) {
+                continue;
+            }
+
+            let x = (idx % frame.width as usize) as u16;
+            let y = (idx / frame.width as usize) as u16;
+
+            if cur_pos != Some((x, y)) {
                 self.stdout.queue(cursor::MoveTo(x, y))?;
+            }
 
                 if cell.fg != cur_fg {
                     if let Some(fg) = cell.fg {
@@ -107,17 +161,20 @@ impl Terminal {
                     cur_bold = cell.bold;
                 }
 
-                let mut buf = [0u8; 4];
-                let s = cell.ch.encode_utf8(&mut buf);
-                self.stdout.queue(Print(s))?;
+            let mut buf = [0u8; 4];
+            let s = cell.ch.encode_utf8(&mut buf);
+            self.stdout.queue(Print(s))?;
+
+            if let Some(v) = last.cells.get_mut(idx) {
+                *v = cell;
             }
+            cur_pos = Some((x.saturating_add(1), y));
         }
 
         self.stdout.queue(SetAttribute(Attribute::Reset))?;
         self.stdout.queue(ResetColor)?;
         self.stdout.flush()?;
-
-        self.last = Some(frame.clone());
+        frame.clear_dirty();
         Ok(())
     }
 }
