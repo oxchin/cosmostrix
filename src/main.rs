@@ -12,7 +12,7 @@ mod terminal;
 
 use std::env;
 use std::fs;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use clap::Parser;
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
@@ -238,122 +238,141 @@ fn main() -> std::io::Result<()> {
 
     let target_fps = args.fps.max(1.0);
     let target_period = Duration::from_secs_f64(1.0 / target_fps);
-    let mut prev = std::time::Instant::now();
-    let mut prev_delay = Duration::from_millis(5);
+    let mut next_frame = Instant::now();
 
     while cloud.raining {
-        while Terminal::poll_event(Duration::from_millis(0))? {
-            let ev = Terminal::read_event()?;
-            match ev {
-                Event::Resize(nw, nh) => {
-                    cloud.reset(nw, nh);
-                    frame = Frame::new(nw, nh, cloud.palette.bg);
-                    cloud.force_draw_everything();
-                }
-                Event::Key(k) if k.kind == KeyEventKind::Press => {
-                    if args.screensaver {
-                        cloud.raining = false;
-                        break;
-                    }
+        let mut pending_resize: Option<(u16, u16)> = None;
 
-                    match (k.code, k.modifiers) {
-                        (KeyCode::Esc, _) => cloud.raining = false,
-                        (KeyCode::Char('q'), _) => cloud.raining = false,
-                        (KeyCode::Char(' '), _) => {
-                            cloud.reset(frame.width, frame.height);
-                            cloud.force_draw_everything();
-                        }
-                        (KeyCode::Char('a'), _) => {
-                            cloud.set_async(!cloud.async_mode);
-                        }
-                        (KeyCode::Char('p'), _) => {
-                            cloud.toggle_pause();
-                        }
-                        (KeyCode::Up, _) => {
-                            let mut cps = cloud.chars_per_sec;
-                            if cps <= 0.5 {
-                                cps *= 2.0;
-                            } else {
-                                cps += 1.0;
-                            }
-                            cloud.set_chars_per_sec(cps.min(1000.0));
-                        }
-                        (KeyCode::Down, _) => {
-                            let mut cps = cloud.chars_per_sec;
-                            if cps <= 1.0 {
-                                cps /= 2.0;
-                            } else {
-                                cps -= 1.0;
-                            }
-                            cloud.set_chars_per_sec(cps.max(0.001));
-                        }
-                        (KeyCode::Left, _) => {
-                            if cloud.glitchy {
-                                let gp = (cloud.glitch_pct - 0.05).max(0.0);
-                                cloud.set_glitch_pct(gp);
-                            }
-                        }
-                        (KeyCode::Right, _) => {
-                            if cloud.glitchy {
-                                let gp = (cloud.glitch_pct + 0.05).min(1.0);
-                                cloud.set_glitch_pct(gp);
-                            }
-                        }
-                        (KeyCode::Tab, _) => {
-                            let sm = if cloud.shading_distance {
-                                ShadingMode::Random
-                            } else {
-                                ShadingMode::DistanceFromHead
-                            };
-                            cloud.set_shading_mode(sm);
-                        }
-                        (KeyCode::Char('-'), _) => {
-                            let d = (cloud.droplet_density - 0.25).max(0.01);
-                            cloud.set_droplet_density(d);
-                        }
-                        (KeyCode::Char('+'), _) | (KeyCode::Char('='), KeyModifiers::SHIFT) => {
-                            let d = (cloud.droplet_density + 0.25).min(5.0);
-                            cloud.set_droplet_density(d);
-                        }
-                        (KeyCode::Char('1'), _) => cloud.set_color_scheme(ColorScheme::Green),
-                        (KeyCode::Char('2'), _) => cloud.set_color_scheme(ColorScheme::Green2),
-                        (KeyCode::Char('3'), _) => cloud.set_color_scheme(ColorScheme::Green3),
-                        (KeyCode::Char('4'), _) => cloud.set_color_scheme(ColorScheme::Gold),
-                        (KeyCode::Char('5'), _) => cloud.set_color_scheme(ColorScheme::Pink2),
-                        (KeyCode::Char('6'), _) => cloud.set_color_scheme(ColorScheme::Red),
-                        (KeyCode::Char('7'), _) => cloud.set_color_scheme(ColorScheme::Blue),
-                        (KeyCode::Char('8'), _) => cloud.set_color_scheme(ColorScheme::Cyan),
-                        (KeyCode::Char('9'), _) => cloud.set_color_scheme(ColorScheme::Purple),
-                        (KeyCode::Char('0'), _) => cloud.set_color_scheme(ColorScheme::Gray),
-                        (KeyCode::Char('!'), _) => cloud.set_color_scheme(ColorScheme::Rainbow),
-                        (KeyCode::Char('@'), _) => cloud.set_color_scheme(ColorScheme::Yellow),
-                        (KeyCode::Char('#'), _) => cloud.set_color_scheme(ColorScheme::Orange),
-                        (KeyCode::Char('$'), _) => cloud.set_color_scheme(ColorScheme::Pink),
-                        (KeyCode::Char('%'), _) => cloud.set_color_scheme(ColorScheme::Vaporwave),
-                        _ => {}
+        loop {
+            while Terminal::poll_event(Duration::from_millis(0))? {
+                let ev = Terminal::read_event()?;
+                match ev {
+                    Event::Resize(nw, nh) => {
+                        pending_resize = Some((nw, nh));
                     }
+                    Event::Key(k) if k.kind == KeyEventKind::Press => {
+                        if args.screensaver {
+                            cloud.raining = false;
+                            break;
+                        }
+
+                        match (k.code, k.modifiers) {
+                            (KeyCode::Esc, _) => cloud.raining = false,
+                            (KeyCode::Char('q'), _) => cloud.raining = false,
+                            (KeyCode::Char(' '), _) => {
+                                cloud.reset(frame.width, frame.height);
+                                cloud.force_draw_everything();
+                            }
+                            (KeyCode::Char('a'), _) => {
+                                cloud.set_async(!cloud.async_mode);
+                            }
+                            (KeyCode::Char('p'), _) => {
+                                cloud.toggle_pause();
+                            }
+                            (KeyCode::Up, _) => {
+                                let mut cps = cloud.chars_per_sec;
+                                if cps <= 0.5 {
+                                    cps *= 2.0;
+                                } else {
+                                    cps += 1.0;
+                                }
+                                cloud.set_chars_per_sec(cps.min(1000.0));
+                            }
+                            (KeyCode::Down, _) => {
+                                let mut cps = cloud.chars_per_sec;
+                                if cps <= 1.0 {
+                                    cps /= 2.0;
+                                } else {
+                                    cps -= 1.0;
+                                }
+                                cloud.set_chars_per_sec(cps.max(0.001));
+                            }
+                            (KeyCode::Left, _) => {
+                                if cloud.glitchy {
+                                    let gp = (cloud.glitch_pct - 0.05).max(0.0);
+                                    cloud.set_glitch_pct(gp);
+                                }
+                            }
+                            (KeyCode::Right, _) => {
+                                if cloud.glitchy {
+                                    let gp = (cloud.glitch_pct + 0.05).min(1.0);
+                                    cloud.set_glitch_pct(gp);
+                                }
+                            }
+                            (KeyCode::Tab, _) => {
+                                let sm = if cloud.shading_distance {
+                                    ShadingMode::Random
+                                } else {
+                                    ShadingMode::DistanceFromHead
+                                };
+                                cloud.set_shading_mode(sm);
+                            }
+                            (KeyCode::Char('-'), _) => {
+                                let d = (cloud.droplet_density - 0.25).max(0.01);
+                                cloud.set_droplet_density(d);
+                            }
+                            (KeyCode::Char('+'), _) | (KeyCode::Char('='), KeyModifiers::SHIFT) => {
+                                let d = (cloud.droplet_density + 0.25).min(5.0);
+                                cloud.set_droplet_density(d);
+                            }
+                            (KeyCode::Char('1'), _) => cloud.set_color_scheme(ColorScheme::Green),
+                            (KeyCode::Char('2'), _) => cloud.set_color_scheme(ColorScheme::Green2),
+                            (KeyCode::Char('3'), _) => cloud.set_color_scheme(ColorScheme::Green3),
+                            (KeyCode::Char('4'), _) => cloud.set_color_scheme(ColorScheme::Gold),
+                            (KeyCode::Char('5'), _) => cloud.set_color_scheme(ColorScheme::Pink2),
+                            (KeyCode::Char('6'), _) => cloud.set_color_scheme(ColorScheme::Red),
+                            (KeyCode::Char('7'), _) => cloud.set_color_scheme(ColorScheme::Blue),
+                            (KeyCode::Char('8'), _) => cloud.set_color_scheme(ColorScheme::Cyan),
+                            (KeyCode::Char('9'), _) => cloud.set_color_scheme(ColorScheme::Purple),
+                            (KeyCode::Char('0'), _) => cloud.set_color_scheme(ColorScheme::Gray),
+                            (KeyCode::Char('!'), _) => cloud.set_color_scheme(ColorScheme::Rainbow),
+                            (KeyCode::Char('@'), _) => cloud.set_color_scheme(ColorScheme::Yellow),
+                            (KeyCode::Char('#'), _) => cloud.set_color_scheme(ColorScheme::Orange),
+                            (KeyCode::Char('$'), _) => cloud.set_color_scheme(ColorScheme::Pink),
+                            (KeyCode::Char('%'), _) => {
+                                cloud.set_color_scheme(ColorScheme::Vaporwave)
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
+
+            if !cloud.raining || pending_resize.is_some() {
+                break;
+            }
+
+            let now = Instant::now();
+            if now >= next_frame {
+                break;
+            }
+
+            let timeout = next_frame - now;
+            let _ = Terminal::poll_event(timeout)?;
         }
 
-    cloud.rain(&mut frame);
-    term.draw(&mut frame)?;
+        if !cloud.raining {
+            break;
+        }
 
-    let cur = std::time::Instant::now();
-    let elapsed = cur.duration_since(prev);
-    let calc_delay = if elapsed >= target_period {
-        Duration::from_nanos(0)
-    } else {
-        target_period - elapsed
-    };
+        if let Some((nw, nh)) = pending_resize {
+            cloud.reset(nw, nh);
+            frame = Frame::new(nw, nh, cloud.palette.bg);
+            cloud.force_draw_everything();
+        }
 
-    let cur_delay = (prev_delay.mul_f32(7.0) + calc_delay).div_f32(8.0);
-    std::thread::sleep(cur_delay);
-    prev = cur;
-    prev_delay = cur_delay;
-}
+        cloud.rain(&mut frame);
+        if frame.is_dirty_all() || !frame.dirty_indices().is_empty() {
+            term.draw(&mut frame)?;
+        }
 
-Ok(())
+        next_frame += target_period;
+        let now = Instant::now();
+        if now > next_frame {
+            next_frame = now;
+        }
+    }
 
+    Ok(())
 }

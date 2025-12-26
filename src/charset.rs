@@ -117,7 +117,7 @@ pub fn build_chars(
         push_range(&mut out, 0x7B, 0x7E);
     }
     if charset.contains(Charset::KATAKANA) {
-        push_range(&mut out, 0xFF66, 0xFF9F);
+        push_range(&mut out, 0xFF66, 0xFF9D);
     }
     if charset.contains(Charset::GREEK) {
         push_range(&mut out, 0x0370, 0x03FF);

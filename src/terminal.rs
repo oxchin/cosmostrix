@@ -13,9 +13,34 @@ use crossterm::{
 use crate::cell::Cell;
 use crate::frame::Frame;
 
+struct LastFrame {
+    width: u16,
+    height: u16,
+    cells: Vec<Cell>,
+}
+
+impl LastFrame {
+    fn new(width: u16, height: u16) -> Self {
+        let len = width as usize * height as usize;
+        Self {
+            width,
+            height,
+            cells: vec![
+                crate::cell::Cell {
+                    ch: ' ',
+                    fg: None,
+                    bg: None,
+                    bold: false,
+                };
+                len
+            ],
+        }
+    }
+}
+
 pub struct Terminal {
     stdout: Stdout,
-    last: Option<Frame>,
+    last: Option<LastFrame>,
 }
 
 impl Terminal {
@@ -24,6 +49,7 @@ impl Terminal {
         terminal::enable_raw_mode()?;
         out.execute(terminal::EnterAlternateScreen)?;
         out.execute(cursor::Hide)?;
+        let _ = out.execute(terminal::DisableLineWrap);
         out.execute(terminal::Clear(terminal::ClearType::All))?;
         out.flush()?;
         Ok(Self {
@@ -65,12 +91,21 @@ impl Terminal {
         let do_full_redraw = !can_reuse_last || frame.is_dirty_all();
 
         if do_full_redraw {
+            let needs_new_last = self
+                .last
+                .as_ref()
+                .map(|l| l.width != frame.width || l.height != frame.height)
+                .unwrap_or(true);
+            if needs_new_last {
+                self.last = Some(LastFrame::new(frame.width, frame.height));
+            }
+            let last = self.last.as_mut().expect("set above");
+
             for y in 0..frame.height {
+                self.stdout.queue(cursor::MoveTo(0, y))?;
                 for x in 0..frame.width {
                     let idx = y as usize * frame.width as usize + x as usize;
-                    let cell = frame.cells[idx];
-
-                    self.stdout.queue(cursor::MoveTo(x, y))?;
+                    let cell = frame.cell_at_index(idx);
 
                     if cell.fg != cur_fg {
                         if let Some(fg) = cell.fg {
@@ -99,9 +134,11 @@ impl Terminal {
                         cur_bold = cell.bold;
                     }
 
-                    let mut buf = [0u8; 4];
-                    let s = cell.ch.encode_utf8(&mut buf);
-                    self.stdout.queue(Print(s))?;
+                    self.stdout.queue(Print(cell.ch))?;
+
+                    if let Some(v) = last.cells.get_mut(idx) {
+                        *v = cell;
+                    }
                 }
             }
 
@@ -109,66 +146,115 @@ impl Terminal {
             self.stdout.queue(ResetColor)?;
             self.stdout.flush()?;
 
-            self.last = Some(frame.clone());
             frame.clear_dirty();
             return Ok(());
         }
 
         let last = self.last.as_mut().expect("checked above");
 
-        for &idx in frame.dirty_indices() {
-            let cell = frame.cells.get(idx).copied().unwrap_or(crate::cell::Cell {
-                ch: ' ',
-                fg: None,
-                bg: None,
-                bold: false,
-            });
-            if last.cells.get(idx).copied() == Some(cell) {
+        frame.sort_dirty();
+
+        let dirty = frame.dirty_indices();
+        let width_usize = frame.width as usize;
+        let mut i = 0usize;
+        let mut run_buf = String::new();
+        run_buf.reserve(64);
+
+        while i < dirty.len() {
+            let idx0 = dirty[i];
+            let cell0 = frame.cell_at_index(idx0);
+            if last.cells.get(idx0).copied() == Some(cell0) {
+                i += 1;
                 continue;
             }
 
-            let x = (idx % frame.width as usize) as u16;
-            let y = (idx / frame.width as usize) as u16;
+            let x0 = (idx0 % width_usize) as u16;
+            let y0 = (idx0 / width_usize) as u16;
+            let fg0 = cell0.fg;
+            let bg0 = cell0.bg;
+            let bold0 = cell0.bold;
 
-            if cur_pos != Some((x, y)) {
-                self.stdout.queue(cursor::MoveTo(x, y))?;
+            run_buf.clear();
+            run_buf.push(cell0.ch);
+            let mut last_idx_in_run = idx0;
+            let mut j = i + 1;
+
+            while j < dirty.len() {
+                let idx1 = dirty[j];
+                if idx1 != last_idx_in_run + 1 {
+                    break;
+                }
+
+                let y1 = (idx1 / width_usize) as u16;
+                if y1 != y0 {
+                    break;
+                }
+
+                let cell1 = frame.cell_at_index(idx1);
+                if last.cells.get(idx1).copied() == Some(cell1) {
+                    break;
+                }
+                if cell1.fg != fg0 || cell1.bg != bg0 || cell1.bold != bold0 {
+                    break;
+                }
+
+                run_buf.push(cell1.ch);
+                last_idx_in_run = idx1;
+                j += 1;
             }
 
-                if cell.fg != cur_fg {
-                    if let Some(fg) = cell.fg {
-                        self.stdout.queue(SetForegroundColor(fg))?;
-                    } else {
-                        self.stdout.queue(SetForegroundColor(Color::Reset))?;
-                    }
-                    cur_fg = cell.fg;
-                }
-
-                if cell.bg != cur_bg {
-                    if let Some(bg) = cell.bg {
-                        self.stdout.queue(SetBackgroundColor(bg))?;
-                    } else {
-                        self.stdout.queue(SetBackgroundColor(Color::Reset))?;
-                    }
-                    cur_bg = cell.bg;
-                }
-
-                if cell.bold != cur_bold {
-                    self.stdout.queue(SetAttribute(if cell.bold {
-                        Attribute::Bold
-                    } else {
-                        Attribute::NormalIntensity
-                    }))?;
-                    cur_bold = cell.bold;
-                }
-
-            let mut buf = [0u8; 4];
-            let s = cell.ch.encode_utf8(&mut buf);
-            self.stdout.queue(Print(s))?;
-
-            if let Some(v) = last.cells.get_mut(idx) {
-                *v = cell;
+            if cur_pos != Some((x0, y0)) {
+                self.stdout.queue(cursor::MoveTo(x0, y0))?;
             }
-            cur_pos = Some((x.saturating_add(1), y));
+
+            if fg0 != cur_fg {
+                if let Some(fg) = fg0 {
+                    self.stdout.queue(SetForegroundColor(fg))?;
+                } else {
+                    self.stdout.queue(SetForegroundColor(Color::Reset))?;
+                }
+                cur_fg = fg0;
+            }
+
+            if bg0 != cur_bg {
+                if let Some(bg) = bg0 {
+                    self.stdout.queue(SetBackgroundColor(bg))?;
+                } else {
+                    self.stdout.queue(SetBackgroundColor(Color::Reset))?;
+                }
+                cur_bg = bg0;
+            }
+
+            if bold0 != cur_bold {
+                self.stdout.queue(SetAttribute(if bold0 {
+                    Attribute::Bold
+                } else {
+                    Attribute::NormalIntensity
+                }))?;
+                cur_bold = bold0;
+            }
+
+            self.stdout.queue(Print(run_buf.as_str()))?;
+
+            let start = idx0;
+            let end = last_idx_in_run + 1;
+            if end <= last.cells.len() {
+                for idx in start..end {
+                    if let Some(v) = last.cells.get_mut(idx) {
+                        *v = frame.cell_at_index(idx);
+                    }
+                }
+            }
+
+            let run_len = run_buf.chars().count() as u16;
+            let next_x = x0.saturating_add(run_len);
+            cur_pos = if next_x < frame.width {
+                Some((next_x, y0))
+            } else {
+                None
+            };
+
+            i = j;
         }
 
         self.stdout.queue(SetAttribute(Attribute::Reset))?;
@@ -184,6 +270,7 @@ impl Drop for Terminal {
         let _ = self.stdout.execute(SetAttribute(Attribute::Reset));
         let _ = self.stdout.execute(ResetColor);
         let _ = self.stdout.execute(cursor::Show);
+        let _ = self.stdout.execute(terminal::EnableLineWrap);
         let _ = self.stdout.execute(terminal::LeaveAlternateScreen);
         let _ = terminal::disable_raw_mode();
         let _ = self.stdout.flush();

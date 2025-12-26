@@ -732,26 +732,37 @@ impl Cloud {
     fn draw_message(&self, frame: &mut Frame) {
         let bg = self.palette.bg;
         for mc in &self.message {
-            if !mc.draw {
-                continue;
-            }
             if mc.line == u16::MAX || mc.col == u16::MAX {
                 continue;
             }
-            frame.set(
-                mc.col,
-                mc.line,
-                Cell {
-                    ch: mc.val,
-                    fg: if self.color_mode == ColorMode::Mono {
-                        None
-                    } else {
-                        self.palette.colors.last().copied()
+
+            if mc.draw {
+                frame.set(
+                    mc.col,
+                    mc.line,
+                    Cell {
+                        ch: mc.val,
+                        fg: if self.color_mode == ColorMode::Mono {
+                            None
+                        } else {
+                            self.palette.colors.last().copied()
+                        },
+                        bg,
+                        bold: self.bold_mode != BoldMode::Off,
                     },
-                    bg,
-                    bold: self.bold_mode != BoldMode::Off,
-                },
-            );
+                );
+            } else {
+                frame.set(
+                    mc.col,
+                    mc.line,
+                    Cell {
+                        ch: ' ',
+                        fg: None,
+                        bg,
+                        bold: false,
+                    },
+                );
+            }
         }
     }
 
