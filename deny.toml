@@ -23,6 +23,8 @@ allow = [
   "CC0-1.0",
 ]
 confidence-threshold = 0.8
+unused-allowed-license = "allow"
+unused-license-exception = "allow"
 exceptions = []
 
 [licenses.private]

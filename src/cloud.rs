@@ -501,12 +501,10 @@ impl Cloud {
         self.color_map.resize(size, 0);
 
         let n = self.palette.colors.len().max(1);
-        let (low, high) = if n < 3 {
-            (0, 0)
-        } else if n == 3 {
-            (1, 1)
-        } else {
-            (1, (n - 2) as u8)
+        let (low, high) = match n {
+            0..=2 => (0, 0),
+            3 => (1, 1),
+            _ => (1, (n - 2) as u8),
         };
         let dist = Uniform::new_inclusive(low, high).expect("valid range");
 
@@ -858,5 +856,61 @@ impl Cloud {
         }
 
         self.force_draw_everything = false;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, Instant};
+
+    use super::Cloud;
+    use crate::frame::Frame;
+    use crate::runtime::{BoldMode, ColorMode, ColorScheme, ShadingMode};
+
+    fn make_cloud() -> Cloud {
+        let mut cloud = Cloud::new(
+            ColorMode::Mono,
+            false,
+            ShadingMode::Random,
+            BoldMode::Off,
+            false,
+            true,
+            ColorScheme::Green,
+            None,
+        );
+        cloud.init_chars(vec!['0', '1']);
+        cloud.reset(20, 10);
+        cloud
+    }
+
+    #[test]
+    fn rain_produces_dirty_frame_when_time_advances() {
+        let mut cloud = make_cloud();
+        let mut frame = Frame::new(20, 10, cloud.palette.bg);
+
+        cloud.last_spawn_time = Instant::now() - Duration::from_secs(1);
+        cloud.rain(&mut frame);
+
+        assert!(frame.is_dirty_all() || !frame.dirty_indices().is_empty());
+    }
+
+    #[test]
+    fn pause_stops_rain_and_unpause_resumes() {
+        let mut cloud = make_cloud();
+        let mut frame = Frame::new(20, 10, cloud.palette.bg);
+
+        cloud.last_spawn_time = Instant::now() - Duration::from_secs(1);
+        cloud.rain(&mut frame);
+        assert!(frame.is_dirty_all() || !frame.dirty_indices().is_empty());
+
+        frame.clear_dirty();
+        cloud.toggle_pause();
+        cloud.rain(&mut frame);
+        assert!(!frame.is_dirty_all() && frame.dirty_indices().is_empty());
+
+        cloud.toggle_pause();
+        cloud.last_spawn_time = Instant::now() - Duration::from_secs(1);
+        cloud.rain(&mut frame);
+        assert!(frame.is_dirty_all() || !frame.dirty_indices().is_empty());
     }
 }

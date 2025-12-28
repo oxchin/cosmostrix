@@ -22,10 +22,26 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+  msrv:
+    name: Nova Robot - MSRV (Rust 1.81.0)
+    runs-on: ubuntu-latest
+    needs: security
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (MSRV)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.81.0
+
+      - name: Tests (MSRV)
+        run: cargo test --all
+
   build_test:
     name: Nova Robot - Test + Build (debug)
     runs-on: ubuntu-latest
-    needs: security
+    needs: [security, msrv]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,7 +55,7 @@ jobs:
         run: cargo test --all
 
       - name: Build (debug)
-        run: cargo build
+        run: cargo build --profile dev
 
   fmt_clippy:
     name: Nova Robot - Format + Clippy

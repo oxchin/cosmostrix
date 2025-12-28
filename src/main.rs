@@ -236,11 +236,21 @@ fn main() -> std::io::Result<()> {
 
     let mut frame = Frame::new(w, h, cloud.palette.bg);
 
+    let start_time = Instant::now();
+    let end_time = args
+        .duration
+        .filter(|s| *s > 0.0)
+        .map(|s| start_time + Duration::from_secs_f64(s));
+
     let target_fps = args.fps.max(1.0);
     let target_period = Duration::from_secs_f64(1.0 / target_fps);
     let mut next_frame = Instant::now();
 
     while cloud.raining {
+        if end_time.is_some_and(|end| Instant::now() >= end) {
+            cloud.raining = false;
+            break;
+        }
         let mut pending_resize: Option<(u16, u16)> = None;
 
         loop {
@@ -348,7 +358,13 @@ fn main() -> std::io::Result<()> {
                 break;
             }
 
-            let timeout = next_frame - now;
+            let mut timeout = next_frame - now;
+            if let Some(end) = end_time {
+                if now >= end {
+                    break;
+                }
+                timeout = timeout.min(end - now);
+            }
             let _ = Terminal::poll_event(timeout)?;
         }
 

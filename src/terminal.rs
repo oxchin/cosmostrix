@@ -176,6 +176,7 @@ impl Terminal {
 
             run_buf.clear();
             run_buf.push(cell0.ch);
+            let mut run_len: u16 = 1;
             let mut last_idx_in_run = idx0;
             let mut j = i + 1;
 
@@ -199,6 +200,7 @@ impl Terminal {
                 }
 
                 run_buf.push(cell1.ch);
+                run_len = run_len.saturating_add(1);
                 last_idx_in_run = idx1;
                 j += 1;
             }
@@ -245,8 +247,6 @@ impl Terminal {
                     }
                 }
             }
-
-            let run_len = run_buf.chars().count() as u16;
             let next_x = x0.saturating_add(run_len);
             cur_pos = if next_x < frame.width {
                 Some((next_x, y0))

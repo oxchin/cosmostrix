@@ -4,6 +4,22 @@ Cosmostrix is a terminal "Matrix rain" visualizer written in Rust.
 
 It is a clean-room Rust migration of an older ncurses-based terminal project.
 
+## Demo
+
+Watch the demo on YouTube:
+
+<div align="center">
+  <a href="https://www.youtube.com/watch?v=VIDEO_ID">
+    <img src="https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg" alt="Cosmostrix demo" width="80%" />
+  </a>
+
+  <strong><a href="https://www.youtube.com/watch?v=VIDEO_ID">▶ Watch Demo on YouTube</a></strong>
+</div>
+
+## Performance & benchmarking
+
+See `benchmark/README.md` for profiling artifacts and a reproducible benchmark script.
+
 ## Features
 
 - Multiple built-in color schemes + user-defined palettes (`--colorfile`)
@@ -109,6 +125,7 @@ These flags match the current Rust implementation (`src/config.rs`).
  -d, --density <NUM>          droplet density (default: 1.0)
  -F, --fullwidth              use two columns per character
  -f, --fps <NUM>              target FPS (default: 60)
+     --duration <SECONDS>      exit after N seconds (useful for benchmarks)
  -g, --glitchms <LO,HI>       glitch timing range in ms (default: 300,400)
  -G, --glitchpct <PCT>        glitch chance percent (default: 10)
  -l, --lingerms <LO,HI>       linger timing range in ms (default: 1,3000)
@@ -232,13 +249,7 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 ## Release process
 
-This repo includes a GitHub Actions workflow that can build `.tar.xz` release packages for Linux/macOS and publish a GitHub Release.
-
-- Triggered by either:
-  - a manual workflow dispatch with a `version`, or
-  - a commit to `main` whose message starts with `release: X.Y.Z`
-
-The workflow will tag `vX.Y.Z` and upload `dist/cosmostrix-<version>-<target>.tar.xz`.
+See `workflow/about-ci.md`.
 
 ## Contributing
 

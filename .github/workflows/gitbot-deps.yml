@@ -5,7 +5,7 @@
 # - Daily auto-update (no PR, direct commit)
 # - Security audit before commit
 # - Test validation
-# - One bot to rule them all 
+# - One bot to rule them all
 
 name: "🤖 Auto Update Dependencies"
 
@@ -78,7 +78,7 @@ jobs:
       - name: Build project
         run: |
           echo "Building with updated dependencies..."
-          cargo build --release
+          cargo build --profile release
 
           echo ""
           echo "Build successful with updated deps"

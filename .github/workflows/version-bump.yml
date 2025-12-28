@@ -3,6 +3,9 @@ name: Auto Version Bump (deps)
 on:
   push:
     branches: ["main"]
+  schedule:
+    # 08:00 WIB (UTC+7) = 01:00 UTC
+    - cron: "0 1 * * *"
   workflow_dispatch:
 
 permissions:
@@ -12,7 +15,7 @@ jobs:
   bump:
     name: Bump patch after 10 deps updates
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'chore(deps): auto-update dependencies')
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore(deps): auto-update dependencies'))
 
     steps:
       - name: Checkout
@@ -25,6 +28,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          # Avoid loops: do not bump if the latest commit is already a release bump.
+          LAST_SUBJECT=$(git log -1 --format=%s)
+          if [[ "${LAST_SUBJECT}" == release:* ]]; then
+            echo "should_bump=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           # Avoid loops: do not run on release commits.
           if [ "${GITHUB_EVENT_NAME}" = "push" ]; then

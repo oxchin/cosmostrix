@@ -60,6 +60,9 @@ pub struct Args {
     #[arg(short = 'f', long = "fps", default_value_t = 60.0)]
     pub fps: f64,
 
+    #[arg(long = "duration")]
+    pub duration: Option<f64>,
+
     #[arg(short = 'g', long = "glitchms", default_value = "300,400")]
     pub glitch_ms: U16Range,
 

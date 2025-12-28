@@ -1,0 +1,85 @@
+name: Auto Tag (release: commit)
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    name: Create tag from release commit
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.head_commit.message, 'release:')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MSG="${{ github.event.head_commit.message }}"
+          FIRST_LINE="${MSG%%$'\n'*}"
+
+          VERSION="${FIRST_LINE#release:}"
+          VERSION="${VERSION## }"
+          VERSION="${VERSION%% }"
+          VERSION="${VERSION#v}"
+
+          if [ -z "$VERSION" ] || [ "$VERSION" = "$FIRST_LINE" ]; then
+            echo "Invalid release commit message. Expected: release: X.Y.Z" >&2
+            exit 1
+          fi
+
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([\-\+][0-9A-Za-z.+-]+)?$ ]]; then
+            echo "Invalid version format: $VERSION" >&2
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Verify Cargo.toml version matches
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.ver.outputs.version }}"
+          CURRENT=$(python3 - <<'PY'
+import re
+from pathlib import Path
+s = Path('Cargo.toml').read_text(encoding='utf-8')
+m = re.search(r'^version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.+-]+)?)"\s*$', s, re.M)
+if not m:
+    raise SystemExit('Could not find version in Cargo.toml')
+print(m.group(1))
+PY
+)
+          if [ "$CURRENT" != "$VERSION" ]; then
+            echo "Cargo.toml version ($CURRENT) does not match release version ($VERSION)" >&2
+            exit 1
+          fi
+
+      - name: Create and push tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${{ steps.ver.outputs.tag }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag already exists: $TAG"
+            exit 0
+          fi
+
+          git tag -a "$TAG" -m "$TAG"
+          git push origin "$TAG"

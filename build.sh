@@ -31,7 +31,7 @@ default_target() {
     echo "x86_64-unknown-linux-gnu"
 }
 
-readonly TARGET="${COSMOSTRIX_TARGET:-${LYVOXA_TARGET:-$(default_target)}}"
+readonly TARGET="${COSMOSTRIX_TARGET:-$(default_target)}"
 export RUST_BACKTRACE="${RUST_BACKTRACE:-1}"
 
 # Intelligent job calculation: 75% of cores, min 1, max 8 for heat control
@@ -44,7 +44,7 @@ calculate_jobs() {
     echo "$jobs"
 }
 
-MAX_JOBS="${COSMOSTRIX_JOBS:-${LYVOXA_JOBS:-$(calculate_jobs)}}"
+MAX_JOBS="${COSMOSTRIX_JOBS:-$(calculate_jobs)}"
 export MAKEFLAGS="-j${MAX_JOBS}"
 export CARGO_BUILD_JOBS="${MAX_JOBS}"
 
@@ -174,7 +174,7 @@ update_dependencies() {
 build_debug() {
     log_step "Building debug binary..."
 
-    if cargo build --target "${TARGET}" --jobs "${MAX_JOBS}"; then
+    if cargo build --profile dev --target "${TARGET}" --jobs "${MAX_JOBS}"; then
         local binary="target/${TARGET}/debug/${PROJECT_NAME}"
         local size
         size=$(du -h "$binary" 2>/dev/null | cut -f1 || echo "unknown")
@@ -189,7 +189,7 @@ build_debug() {
 build_release() {
     log_step "Building optimized release binary..."
 
-    if cargo build --release --target "${TARGET}" --jobs "${MAX_JOBS}"; then
+    if cargo build --profile release --target "${TARGET}" --jobs "${MAX_JOBS}"; then
         local binary="target/${TARGET}/release/${PROJECT_NAME}"
         local size
         size=$(du -h "$binary" 2>/dev/null | cut -f1 || echo "unknown")

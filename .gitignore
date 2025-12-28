@@ -8,3 +8,6 @@ reference
 
 # Secret
 guide-optimize*
+
+# Benchmark artifacts
+benchmark/perf.data*

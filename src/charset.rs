@@ -156,3 +156,26 @@ pub fn build_chars(
 
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_user_hex_chars_parses_hex_codepoints() {
+        let v = parse_user_hex_chars("30,31").unwrap();
+        assert_eq!(v, vec!['0', '1']);
+    }
+
+    #[test]
+    fn charset_auto_selects_ascii_safe_when_non_utf() {
+        let cs = charset_from_str("auto", true).unwrap();
+        assert_eq!(cs, Charset::ASCII_SAFE);
+    }
+
+    #[test]
+    fn build_chars_binary_has_only_0_and_1() {
+        let out = build_chars(Charset::BINARY, &[], true);
+        assert_eq!(out, vec!['0', '1']);
+    }
+}
