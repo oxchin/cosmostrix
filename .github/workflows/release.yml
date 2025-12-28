@@ -53,12 +53,18 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.81.0
           components: rustfmt, clippy
 
+      - name: Install stable toolchain
+        run: rustup toolchain install stable
+
       - name: Audit dependencies
-        uses: rustsec/audit-check@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +stable install cargo-audit --locked
+          cargo +stable audit
 
       - name: Tests
         run: cargo test --all
@@ -74,8 +80,8 @@ jobs:
 
       - name: Dependency policy (cargo-deny)
         run: |
-          cargo install cargo-deny --locked
-          cargo deny check all
+          cargo +stable install cargo-deny --locked
+          cargo +stable deny check all
 
       - name: Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
@@ -155,6 +161,8 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.81.0
 
       - name: Setup Java
         uses: actions/setup-java@v4

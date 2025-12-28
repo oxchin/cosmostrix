@@ -47,7 +47,11 @@ jobs:
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.81.0
           components: clippy
+
+      - name: Install stable toolchain
+        run: rustup toolchain install stable
 
       - name: Setup cache
         uses: Swatinem/rust-cache@v2
@@ -71,8 +75,8 @@ jobs:
       - name: Security audit
         run: |
           echo "Running security audit..."
-          cargo install cargo-audit --locked || true
-          cargo audit || echo "Audit warnings detected (non-blocking)"
+          cargo +stable install cargo-audit --locked || true
+          cargo +stable audit || echo "Audit warnings detected (non-blocking)"
         continue-on-error: true
 
       - name: Build project

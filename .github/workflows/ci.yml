@@ -17,10 +17,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Audit dependencies
-        uses: rustsec/audit-check@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +stable install cargo-audit --locked
+          cargo +stable audit
 
   msrv:
     name: Nova Robot - MSRV (Rust 1.81.0)
@@ -49,6 +54,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.81.0
           components: rustfmt, clippy
 
       - name: Tests
@@ -68,6 +74,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.81.0
           components: rustfmt, clippy
 
       - name: Format check
@@ -86,9 +93,14 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.81.0
+
+      - name: Install stable toolchain
+        run: rustup toolchain install stable
 
       - name: Install cargo-deny
-        run: cargo install cargo-deny --locked
+        run: cargo +stable install cargo-deny --locked
 
       - name: cargo deny
-        run: cargo deny check all
+        run: cargo +stable deny check all

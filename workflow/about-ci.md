@@ -21,11 +21,11 @@ Workflow files live under:
 
 **What it does**
 
-- **Security audit**: runs `rustsec/audit-check`.
+- **Security audit**: runs `cargo-audit` using `cargo +stable` to avoid MSRV breakage when `cargo-audit` bumps its required Rust version.
 - **MSRV**: runs `cargo test --all` on Rust `1.81.0`.
 - **Test + Build (debug)**: runs `cargo test --all` and `cargo build --profile dev`.
 - **Format + Clippy**: runs `cargo fmt -- --check` and `cargo clippy ... -D warnings`.
-- **Dependency policy**: installs `cargo-deny` and runs `cargo deny check all`.
+- **Dependency policy**: installs `cargo-deny` and runs `cargo +stable deny check all`.
 
 **Notes**
 
@@ -53,7 +53,7 @@ Workflow files live under:
 - Checks:
   - `cargo fmt -- --check`
   - `cargo clippy --all-targets --all-features -- -D warnings`
-  - `cargo deny check all`
+  - `cargo +stable deny check all`
 
 **Packaging output**
 
