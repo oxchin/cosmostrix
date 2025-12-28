@@ -11,17 +11,20 @@ name: "🤖 Auto Update Dependencies"
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Daily at 8 AM Singapore time (00:00 UTC)
-  workflow_dispatch:       # Manual trigger
+    - cron: "0 1 * * *"
+  workflow_dispatch:
     inputs:
-      force_update:
-        description: 'Force update even if tests fail'
-        required: false
-        default: 'false'
       strategy:
-        description: 'Update strategy: direct (push to main) or pr (open a pull request)'
-        required: false
-        default: 'direct'
+        description: "How to publish updates"
+        type: choice
+        options:
+          - direct
+          - pr
+        default: direct
+      force_update:
+        description: "Continue even if tests fail"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -31,6 +34,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   UPDATE_STRATEGY: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.strategy || 'direct' }}
+  FORCE_UPDATE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.force_update || 'false' }}
 
 jobs:
   auto-update:
@@ -48,7 +52,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.81.0
-          components: clippy
+          components: rustfmt, clippy
 
       - name: Install stable toolchain
         run: rustup toolchain install stable
@@ -75,14 +79,22 @@ jobs:
       - name: Security audit
         run: |
           echo "Running security audit..."
-          cargo +stable install cargo-audit --locked || true
-          cargo +stable audit || echo "Audit warnings detected (non-blocking)"
-        continue-on-error: true
+          cargo +stable install cargo-audit --locked
+          cargo +stable audit
+
+      - name: Dependency policy (cargo-deny)
+        run: |
+          cargo +stable install cargo-deny --locked
+          cargo +stable deny check all
+
+      - name: Format check
+        run: cargo fmt --all -- --check
 
       - name: Build project
         run: |
           echo "Building with updated dependencies..."
-          cargo build --profile release
+          cargo build --profile dev --locked
+          cargo build --profile release --locked
 
           echo ""
           echo "Build successful with updated deps"
@@ -90,17 +102,16 @@ jobs:
       - name: Run tests
         run: |
           echo "Running test suite..."
-          cargo test --all
+          cargo test --all --locked
 
           echo ""
           echo "All tests passed"
-        continue-on-error: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.force_update == 'true' }}
+        continue-on-error: ${{ env.FORCE_UPDATE == 'true' }}
 
       - name: Quick clippy check
         run: |
           echo "Running clippy sanity check..."
-          cargo clippy --all-targets -- -D warnings || echo "Clippy warnings (non-blocking)"
-        continue-on-error: true
+          cargo clippy --locked --all-targets --all-features -- -D warnings
 
       - name: Configure Git
         run: |
@@ -185,7 +196,7 @@ jobs:
 
           echo "----------------------------------------"
           echo ""
-          echo "Next run: Tomorrow 00:00 UTC (07:00 WIB / 08:00 SGT)"
+          echo "Next run: 01:00 UTC (08:00 WIB)"
           echo "Manual trigger: Actions -> Auto Update Dependencies -> Run workflow"
 
 concurrency:

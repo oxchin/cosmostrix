@@ -19,6 +19,11 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.81.0
+
+      - name: Install stable toolchain
+        run: rustup toolchain install stable
 
       - name: Audit dependencies
         shell: bash
@@ -41,7 +46,7 @@ jobs:
           toolchain: 1.81.0
 
       - name: Tests (MSRV)
-        run: cargo test --all
+        run: cargo test --all --locked
 
   build_test:
     name: Nova Robot - Test + Build (debug)
@@ -58,10 +63,10 @@ jobs:
           components: rustfmt, clippy
 
       - name: Tests
-        run: cargo test --all
+        run: cargo test --all --locked
 
       - name: Build (debug)
-        run: cargo build --profile dev
+        run: cargo build --profile dev --locked
 
   fmt_clippy:
     name: Nova Robot - Format + Clippy
@@ -81,7 +86,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
 
   deny:
     name: Nova Robot - Dependency policy (cargo-deny)

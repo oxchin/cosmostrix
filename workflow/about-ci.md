@@ -1,13 +1,11 @@
 # GitHub Actions workflows
 
-This repository uses GitHub Actions for CI, automated dependency updates, and releases.
+This repository uses GitHub Actions for CI and releases.
 
 Workflow files live under:
 
 - `.github/workflows/ci.yml`
 - `.github/workflows/release.yml`
-- `.github/workflows/auto-tag.yml`
-- `.github/workflows/version-bump.yml`
 - `.github/workflows/gitbot-deps.yml`
 
 ## Overview
@@ -36,7 +34,12 @@ Workflow files live under:
 **Triggers**
 
 - `push` tag matching `v*` (recommended)
-- `workflow_dispatch` (manual) with `tag` input
+
+**Tag conventions (release channel)**
+
+- `vX.Y.Z-alpha.N`, `vX.Y.Z-beta.N`, `vX.Y.Z-rc.N` => published as **prerelease** (not Latest)
+- `vX.Y.Z-stable.N` => published as a **normal release** (eligible to become **Latest**)
+- `vX.Y.Z` => published as a **normal release** (eligible to become **Latest**)
 
 **What it builds**
 
@@ -46,13 +49,13 @@ Workflow files live under:
 
 **Build steps (per platform job)**
 
-- Tests: `cargo test --all`
+- Tests: `cargo test --all --locked`
 - Builds:
   - `cargo build --profile dev --locked`
   - `cargo build --profile release --locked`
 - Checks:
   - `cargo fmt -- --check`
-  - `cargo clippy --all-targets --all-features -- -D warnings`
+  - `cargo clippy --locked --all-targets --all-features -- -D warnings`
   - `cargo +stable deny check all`
 
 **Packaging output**
@@ -99,72 +102,42 @@ The `publish_release` job:
 - generates release notes from git history (since previous `v*` tag)
 - creates a GitHub Release and uploads all `*.tar.xz` and `*.tar.xz.sha512` files
 
-### Auto Tag (`.github/workflows/auto-tag.yml`)
-
-**Trigger**
-
-- `push` to `main`
-
-**Condition**
-
-- only runs when the latest commit subject starts with `release:`
-
-**What it does**
-
-- extracts the version from the first line of the commit message:
-  - example: `release: 1.0.1`
-- validates the version format
-- verifies `Cargo.toml` version matches the `release:` version
-- creates and pushes an annotated tag `v<version>`
-
-### Auto Version Bump (`.github/workflows/version-bump.yml`)
-
-**Triggers**
-
-- scheduled daily
-- manual `workflow_dispatch`
-- `push` to `main` when the head commit message matches `chore(deps): auto-update dependencies...`
-
-**What it does**
-
-- counts dependency update commits since last `v*` tag
-- every 10 such commits, it bumps `Cargo.toml` patch version and creates a signed commit:
-  - `release: X.Y.(Z+1)`
-
-This release commit will then be picked up by **Auto Tag**.
-
-### Auto Update Dependencies (`.github/workflows/gitbot-deps.yml`)
-
-**Triggers**
-
-- scheduled daily
-- manual `workflow_dispatch` with inputs:
-  - `force_update` (continue even if tests fail)
-  - `strategy` (`direct` push-to-main, or `pr`)
-
-**What it does**
-
-- runs `cargo update`
-- runs a best-effort `cargo audit`
-- builds with `cargo build --profile release`
-- runs `cargo test --all` (can be forced non-blocking)
-- commits and pushes updates to `main` (default) or opens a PR
-
 ## Typical release flow
 
 ```bash
 # 1) Update Cargo.toml version
-# 2) Commit with the release version
-git commit -am "release: 1.0.1"
+# 2) Commit the version bump
+git commit -am "release: 1.0.1-stable.1"
 
-# optional prerelease examples:
-# git commit -am "release: 1.0.1-rc.1"
-# git commit -am "release: 1.0.1-alpha.1"
+# 3) Create an annotated tag
+git tag -a v1.0.1-stable.1 -m v1.0.1-stable.1
 
-# 3) Push to main
-git push origin main
+# 4) Push the tag (this triggers the Release workflow)
+git push origin v1.0.1-stable.1
 ```
 
-- The **Auto Tag** workflow will create and push tag `v1.0.1`.
 - The **Release** workflow will run on that tag.
-- If the version contains `-` (e.g. `-rc.1`, `-alpha.1`), the GitHub Release is marked as a prerelease.
+- `-alpha.*` / `-beta.*` / `-rc.*` tags are marked as prerelease.
+- `-stable.*` tags are treated as normal releases.
+
+### Dependency update bot (`.github/workflows/gitbot-deps.yml`)
+
+**Triggers**
+
+- `schedule` daily at **01:00 UTC (08:00 WIB)**
+- `workflow_dispatch` manual run
+
+**Manual inputs**
+
+- `strategy`: `direct` (commit to `main`) or `pr` (open a PR)
+- `force_update`: continue even if tests fail
+
+**What it does**
+
+- Runs `cargo update`
+- Runs `cargo +stable audit` and `cargo +stable deny check all`
+- Runs `cargo fmt -- --check` and basic build/test/clippy on toolchain `1.81.0`
+
+**Notes**
+
+- GitHub cron uses UTC; adjust the schedule if you want a different local time.

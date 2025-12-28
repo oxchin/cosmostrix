@@ -249,7 +249,19 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 ## Release process
 
-See `workflow/about-ci.md`.
+Create a release by pushing a `v*` git tag (this triggers the GitHub Actions Release workflow).
+
+```bash
+# 1) Update Cargo.toml version
+# 2) Commit the version bump
+git commit -am "release: 1.0.1-stable.1"
+
+# 3) Tag and push
+git tag -a v1.0.1-stable.1 -m v1.0.1-stable.1
+git push origin v1.0.1-stable.1
+```
+
+See `workflow/about-ci.md` for details.
 
 ## Contributing
 
