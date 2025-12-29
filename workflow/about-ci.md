@@ -43,9 +43,11 @@ Workflow files live under:
 
 **What it builds**
 
-- Linux (runner host build)
-- macOS (runner host build)
-- Android aarch64 (cross-compiled): `aarch64-linux-android`
+- Linux amd64 (runner host build)
+- Linux arm64 (cross-compiled): `aarch64-unknown-linux-gnu`
+- macOS amd64 (runner host build)
+- macOS arm64 (runner host build)
+- Android arm64 (cross-compiled): `aarch64-linux-android`
 
 **Build steps (per platform job)**
 
@@ -62,14 +64,18 @@ Workflow files live under:
 
 Each build produces:
 
-- `cosmostrix-bin-<platform>.tar.xz`
-- `cosmostrix-bin-<platform>.tar.xz.sha512`
+- `cosmostrix-bin-<tag>-<platform>.tar.xz`
+- `cosmostrix-bin-<tag>-<platform>.tar.xz.sha512`
+
+Where `<tag>` is a git tag like `v1.0.0`.
 
 Where `<platform>` is one of:
 
 - `linux-amd64`
-- `macos-arm64`
-- `android-aarch64`
+- `linux-arm64`
+- `darwin-amd64`
+- `darwin-arm64`
+- `android-arm64`
 
 The archive contains:
 
@@ -88,10 +94,10 @@ Verification examples:
 
 ```bash
 # Linux
-sha512sum -c cosmostrix-bin-linux-amd64.tar.xz.sha512
+sha512sum -c cosmostrix-bin-v1.0.0-linux-amd64.tar.xz.sha512
 
 # macOS
-shasum -a 512 -c cosmostrix-bin-macos-arm64.tar.xz.sha512
+shasum -a 512 -c cosmostrix-bin-v1.0.0-darwin-arm64.tar.xz.sha512
 ```
 
 **Release publishing**

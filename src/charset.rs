@@ -69,7 +69,10 @@ pub fn charset_from_str(spec: &str, default_to_ascii: bool) -> Result<Charset, S
         "devanagari" => Ok(Charset::DEVANAGARI),
         "braille" => Ok(Charset::BRAILLE),
         "runic" => Ok(Charset::RUNIC),
-        _ => Err(format!("unsupported charset: {}", spec)),
+        _ => Err(format!(
+            "unsupported charset: {} (see --list-charsets)",
+            spec
+        )),
     }
 }
 

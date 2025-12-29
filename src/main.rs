@@ -14,6 +14,7 @@ use std::env;
 use std::fs;
 use std::time::{Duration, Instant};
 
+use clap::builder::styling::{AnsiColor as ClapAnsiColor, Color as ClapColor};
 use clap::builder::styling::{Effects as ClapEffects, Style as ClapStyle};
 use clap::builder::Styles as ClapStyles;
 use clap::{CommandFactory, FromArgMatches};
@@ -21,13 +22,48 @@ use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 
 use crate::charset::{build_chars, charset_from_str, parse_user_hex_chars};
 use crate::cloud::Cloud;
-use crate::config::{print_help_detail, print_list_charsets, print_list_colors, Args};
+use crate::config::{
+    print_help_detail, print_list_charsets, print_list_colors, Args, DEFAULT_PARAMS_USAGE,
+};
 use crate::frame::Frame;
 use crate::runtime::{BoldMode, ColorMode, ColorScheme, ShadingMode, UserColor, UserColors};
 use crate::terminal::Terminal;
 
+const HELP_TEMPLATE: &str = "\
+{before-help}{about-with-newline}
+USAGE:
+  {usage}
+
+{all-args}{after-help}";
+
 fn clap_styles() -> ClapStyles {
-    ClapStyles::styled().header(ClapStyle::new().effects(ClapEffects::BOLD))
+    ClapStyles::styled()
+        .header(
+            ClapStyle::new()
+                .effects(ClapEffects::BOLD)
+                .fg_color(Some(ClapColor::Ansi(ClapAnsiColor::Cyan))),
+        )
+        .usage(
+            ClapStyle::new()
+                .effects(ClapEffects::BOLD)
+                .fg_color(Some(ClapColor::Ansi(ClapAnsiColor::Green))),
+        )
+        .literal(ClapStyle::new().fg_color(Some(ClapColor::Ansi(ClapAnsiColor::Yellow))))
+        .placeholder(ClapStyle::new().fg_color(Some(ClapColor::Ansi(ClapAnsiColor::Magenta))))
+}
+
+fn clamp_f64(v: f64, min: f64, max: f64, fallback: f64) -> f64 {
+    if !v.is_finite() {
+        return fallback;
+    }
+    v.clamp(min, max)
+}
+
+fn clamp_f32(v: f32, min: f32, max: f32, fallback: f32) -> f32 {
+    if !v.is_finite() {
+        return fallback;
+    }
+    v.clamp(min, max)
 }
 
 fn default_to_ascii() -> bool {
@@ -42,7 +78,10 @@ fn detect_color_mode(args: &Args) -> ColorMode {
             16 => ColorMode::Color16,
             32 => ColorMode::TrueColor,
             256 => ColorMode::Color256,
-            _ => ColorMode::Color256,
+            _ => {
+                eprintln!("invalid --colormode: {} (allowed: 0,16,256,32)", m);
+                std::process::exit(1);
+            }
         };
     }
 
@@ -79,7 +118,7 @@ fn parse_color_scheme(s: &str) -> Result<ColorScheme, String> {
         "pink2" => Ok(ColorScheme::Pink2),
         "vaporwave" => Ok(ColorScheme::Vaporwave),
         "gray" | "grey" => Ok(ColorScheme::Gray),
-        _ => Err(format!("invalid color: {}", s)),
+        _ => Err(format!("invalid color: {} (see --list-colors)", s)),
     }
 }
 
@@ -134,6 +173,14 @@ fn parse_user_colors(path: &std::path::Path) -> std::result::Result<UserColors, 
 fn main() -> std::io::Result<()> {
     let mut cmd = Args::command();
     cmd = cmd.styles(clap_styles());
+    cmd = cmd.before_help(DEFAULT_PARAMS_USAGE);
+    cmd = cmd.help_template(HELP_TEMPLATE);
+    cmd.build();
+
+    if cmd.get_arguments().any(|a| a.get_id().as_str() == "help") {
+        cmd = cmd.mut_arg("help", |a| a.help_heading("HELP"));
+    }
+    cmd.build();
     let matches = cmd.get_matches();
     let args = Args::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
 
@@ -152,6 +199,11 @@ fn main() -> std::io::Result<()> {
         return Ok(());
     }
 
+    if args.version {
+        println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
     if args.info {
         println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
         println!("author: {}", env!("CARGO_PKG_AUTHORS"));
@@ -167,7 +219,7 @@ fn main() -> std::io::Result<()> {
         _ => ShadingMode::Random,
     };
 
-    let bold_mode = match args.bold {
+    let bold_mode = match args.bold.min(2) {
         0 => BoldMode::Off,
         2 => BoldMode::All,
         _ => BoldMode::Random,
@@ -211,15 +263,22 @@ fn main() -> std::io::Result<()> {
     );
 
     cloud.glitchy = !args.noglitch;
-    cloud.set_glitch_pct((args.glitch_pct / 100.0).clamp(0.0, 1.0));
-    cloud.set_glitch_times(args.glitch_ms.low, args.glitch_ms.high);
-    cloud.set_linger_times(args.linger_ms.low, args.linger_ms.high);
-    cloud.short_pct = (args.shortpct / 100.0).clamp(0.0, 1.0);
-    cloud.die_early_pct = (args.rippct / 100.0).clamp(0.0, 1.0);
+    cloud.set_glitch_pct(clamp_f32(args.glitch_pct, 0.0, 100.0, 10.0) / 100.0);
+
+    let glitch_low = args.glitch_ms.low.clamp(1, 5000);
+    let glitch_high = args.glitch_ms.high.clamp(1, 5000);
+    cloud.set_glitch_times(glitch_low, glitch_high);
+
+    let linger_low = args.linger_ms.low.clamp(1, 60000);
+    let linger_high = args.linger_ms.high.clamp(1, 60000);
+    cloud.set_linger_times(linger_low, linger_high);
+
+    cloud.short_pct = clamp_f32(args.shortpct, 0.0, 100.0, 50.0) / 100.0;
+    cloud.die_early_pct = clamp_f32(args.rippct, 0.0, 100.0, 33.33333) / 100.0;
     cloud.set_max_droplets_per_column(args.max_droplets_per_column.clamp(1, 3));
 
-    cloud.set_droplet_density(args.density.clamp(0.01, 5.0));
-    cloud.set_chars_per_sec(args.speed.clamp(0.001, 1_000_000.0));
+    cloud.set_droplet_density(clamp_f32(args.density, 0.01, 5.0, 1.0));
+    cloud.set_chars_per_sec(clamp_f32(args.speed, 0.001, 1000.0, 8.0));
 
     let mut user_ranges: Vec<(char, char)> = Vec::new();
     if let Some(spec) = &args.chars {
@@ -262,12 +321,15 @@ fn main() -> std::io::Result<()> {
     let mut frame = Frame::new(w, h, cloud.palette.bg);
 
     let start_time = Instant::now();
-    let end_time = args
-        .duration
-        .filter(|s| *s > 0.0)
-        .map(|s| start_time + Duration::from_secs_f64(s));
+    let end_time = args.duration.and_then(|s| {
+        if !s.is_finite() || s <= 0.0 {
+            return None;
+        }
+        let s = s.clamp(0.1, 86400.0);
+        Some(start_time + Duration::from_secs_f64(s))
+    });
 
-    let target_fps = args.fps.max(1.0);
+    let target_fps = clamp_f64(args.fps, 1.0, 240.0, 60.0);
     let target_period = Duration::from_secs_f64(1.0 / target_fps);
     let mut next_frame = Instant::now();
 
