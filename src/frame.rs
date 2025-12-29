@@ -82,6 +82,7 @@ impl Frame {
         Some(y as usize * self.width as usize + x as usize)
     }
 
+    #[allow(dead_code)]
     pub fn get(&self, x: u16, y: u16) -> Option<&Cell> {
         self.index(x, y).map(|i| {
             if self.cell_gen.get(i).copied() == Some(self.gen) {

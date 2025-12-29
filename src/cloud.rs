@@ -173,7 +173,6 @@ struct MsgChr {
     line: u16,
     col: u16,
     val: char,
-    draw: bool,
 }
 
 pub struct Cloud {
@@ -241,6 +240,8 @@ pub struct Cloud {
     shading_mode: ShadingMode,
 
     message: Vec<MsgChr>,
+    message_text: Option<String>,
+    message_border: bool,
 
     user_colors: Option<UserColors>,
     color_scheme: ColorScheme,
@@ -315,6 +316,8 @@ impl Cloud {
             force_draw_everything: false,
             shading_mode,
             message: Vec::new(),
+            message_text: None,
+            message_border: true,
             user_colors,
             color_scheme,
             default_background,
@@ -324,16 +327,17 @@ impl Cloud {
     }
 
     pub fn set_message(&mut self, msg: &str) {
-        self.message.clear();
-        for ch in msg.chars() {
-            self.message.push(MsgChr {
-                line: 0,
-                col: 0,
-                val: ch,
-                draw: false,
-            });
-        }
+        self.message_text = Some(msg.to_string());
         self.reset_message();
+        self.force_draw_everything = true;
+    }
+
+    pub fn set_message_border(&mut self, on: bool) {
+        self.message_border = on;
+        if self.message_text.is_some() {
+            self.reset_message();
+            self.force_draw_everything = true;
+        }
     }
 
     pub fn set_color_scheme(&mut self, scheme: ColorScheme) {
@@ -444,7 +448,7 @@ impl Cloud {
         self.set_column_speeds();
         self.update_droplet_speeds();
 
-        if !self.message.is_empty() {
+        if self.message_text.is_some() {
             self.reset_message();
         }
 
@@ -674,93 +678,157 @@ impl Cloud {
     }
 
     fn reset_message(&mut self) {
-        if self.message.is_empty() {
+        let Some(text) = self.message_text.as_deref() else {
+            return;
+        };
+
+        let pad_x: u16 = 2;
+        let pad_y: u16 = 1;
+
+        let border: u16 = if self.message_border { 1 } else { 0 };
+
+        let min_box_w = (2u16.saturating_mul(border))
+            .saturating_add(2u16.saturating_mul(pad_x))
+            .max(1);
+        let min_box_h = (2u16.saturating_mul(border))
+            .saturating_add(2u16.saturating_mul(pad_y))
+            .max(1);
+        if self.cols < min_box_w || self.lines < min_box_h {
+            self.message.clear();
             return;
         }
 
-        let first_col = self.cols / 4;
-        let last_col = (3 * self.cols) / 4;
-        let chars_per_col = last_col.saturating_sub(first_col) + 1;
-        let msg_lines = (self.message.len() as u16 / chars_per_col).saturating_add(1);
-        let first_line = self.lines / 2 - msg_lines / 2;
+        let max_content_w = self
+            .cols
+            .saturating_sub(2u16.saturating_mul(border))
+            .saturating_sub(2u16.saturating_mul(pad_x))
+            .max(1);
+        let max_content_h = self
+            .lines
+            .saturating_sub(2u16.saturating_mul(border))
+            .saturating_sub(2u16.saturating_mul(pad_y))
+            .max(1);
 
-        let mut remaining = self.message.len() as u16;
-        let mut line = first_line;
-        let mut col = first_col;
-        if remaining < chars_per_col {
-            col += (chars_per_col - remaining) / 2;
-        }
-
-        for mc in &mut self.message {
-            mc.draw = false;
-            if line < self.lines {
-                mc.line = line;
-                mc.col = col;
-            } else {
-                mc.line = u16::MAX;
-                mc.col = u16::MAX;
-            }
-
-            if col == last_col {
-                line = line.saturating_add(1);
-                col = first_col;
-                if remaining < chars_per_col {
-                    col += (chars_per_col - remaining) / 2;
-                }
-            } else {
-                col = col.saturating_add(1);
-            }
-            remaining = remaining.saturating_sub(1);
-        }
-    }
-
-    fn calc_message(&mut self, frame: &Frame) {
-        for mc in &mut self.message {
-            if mc.line == u16::MAX || mc.col == u16::MAX {
+        let mut content_lines: Vec<Vec<char>> = Vec::new();
+        for raw_line in text.split('\n') {
+            if content_lines.len() as u16 >= max_content_h {
                 break;
             }
-            if let Some(c) = frame.get(mc.col, mc.line) {
-                if c.ch != ' ' {
-                    mc.draw = true;
+
+            let chars: Vec<char> = raw_line.chars().collect();
+            if chars.is_empty() {
+                content_lines.push(Vec::new());
+                continue;
+            }
+
+            for chunk in chars.chunks(max_content_w as usize) {
+                if content_lines.len() as u16 >= max_content_h {
+                    break;
                 }
+                content_lines.push(chunk.to_vec());
+            }
+        }
+
+        if content_lines.is_empty() {
+            content_lines.push(Vec::new());
+        }
+
+        let mut content_w: u16 = 1;
+        for l in &content_lines {
+            content_w = content_w.max(l.len().min(max_content_w as usize) as u16);
+        }
+        let content_h: u16 = (content_lines.len().min(max_content_h as usize)) as u16;
+
+        let box_w = content_w
+            .saturating_add(2u16.saturating_mul(border))
+            .saturating_add(2u16.saturating_mul(pad_x));
+        let box_h = content_h
+            .saturating_add(2u16.saturating_mul(border))
+            .saturating_add(2u16.saturating_mul(pad_y));
+
+        let start_col = self.cols / 2 - box_w / 2;
+        let start_line = self.lines / 2 - box_h / 2;
+
+        self.message.clear();
+
+        for y in 0..box_h {
+            let line = start_line.saturating_add(y);
+            if line >= self.lines {
+                continue;
+            }
+
+            for x in 0..box_w {
+                let col = start_col.saturating_add(x);
+                if col >= self.cols {
+                    continue;
+                }
+
+                let mut ch = ' ';
+                if border == 1 {
+                    let is_top = y == 0;
+                    let is_bottom = y + 1 == box_h;
+                    let is_left = x == 0;
+                    let is_right = x + 1 == box_w;
+                    ch = if (is_top || is_bottom) && (is_left || is_right) {
+                        '+'
+                    } else if is_top || is_bottom {
+                        '-'
+                    } else if is_left || is_right {
+                        '|'
+                    } else {
+                        ' '
+                    };
+                }
+
+                {
+                    let content_start_y = border.saturating_add(pad_y);
+                    let content_start_x = border.saturating_add(pad_x);
+
+                    if y >= content_start_y
+                        && y < content_start_y.saturating_add(content_h)
+                        && x >= content_start_x
+                        && x < content_start_x.saturating_add(content_w)
+                    {
+                        let inner_y = y - content_start_y;
+                        let inner_x = x - content_start_x;
+
+                        let li = inner_y as usize;
+                        if let Some(line_chars) = content_lines.get(li) {
+                            let line_len = line_chars.len().min(content_w as usize);
+                            let left_pad = (content_w as usize)
+                                .saturating_sub(line_len)
+                                .saturating_div(2);
+                            let ix = inner_x as usize;
+                            if ix >= left_pad && ix < left_pad + line_len {
+                                ch = line_chars[ix - left_pad];
+                            }
+                        }
+                    }
+                }
+
+                self.message.push(MsgChr { line, col, val: ch });
             }
         }
     }
 
     fn draw_message(&self, frame: &mut Frame) {
-        let bg = self.palette.bg;
+        let bg = Some(Color::Black);
+        let fg = if self.color_mode == ColorMode::Mono {
+            None
+        } else {
+            self.palette.colors.last().copied()
+        };
         for mc in &self.message {
-            if mc.line == u16::MAX || mc.col == u16::MAX {
-                continue;
-            }
-
-            if mc.draw {
-                frame.set(
-                    mc.col,
-                    mc.line,
-                    Cell {
-                        ch: mc.val,
-                        fg: if self.color_mode == ColorMode::Mono {
-                            None
-                        } else {
-                            self.palette.colors.last().copied()
-                        },
-                        bg,
-                        bold: self.bold_mode != BoldMode::Off,
-                    },
-                );
-            } else {
-                frame.set(
-                    mc.col,
-                    mc.line,
-                    Cell {
-                        ch: ' ',
-                        fg: None,
-                        bg,
-                        bold: false,
-                    },
-                );
-            }
+            frame.set(
+                mc.col,
+                mc.line,
+                Cell {
+                    ch: mc.val,
+                    fg: if mc.val == ' ' { None } else { fg },
+                    bg,
+                    bold: mc.val != ' ' && self.bold_mode != BoldMode::Off,
+                },
+            );
         }
     }
 
@@ -845,7 +913,6 @@ impl Cloud {
         }
 
         if !self.message.is_empty() {
-            self.calc_message(frame);
             self.draw_message(frame);
         }
 

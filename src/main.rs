@@ -14,15 +14,21 @@ use std::env;
 use std::fs;
 use std::time::{Duration, Instant};
 
-use clap::Parser;
+use clap::builder::styling::{Effects as ClapEffects, Style as ClapStyle};
+use clap::builder::Styles as ClapStyles;
+use clap::{CommandFactory, FromArgMatches};
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 
 use crate::charset::{build_chars, charset_from_str, parse_user_hex_chars};
 use crate::cloud::Cloud;
-use crate::config::Args;
+use crate::config::{print_help_detail, print_list_charsets, print_list_colors, Args};
 use crate::frame::Frame;
 use crate::runtime::{BoldMode, ColorMode, ColorScheme, ShadingMode, UserColor, UserColors};
 use crate::terminal::Terminal;
+
+fn clap_styles() -> ClapStyles {
+    ClapStyles::styled().header(ClapStyle::new().effects(ClapEffects::BOLD))
+}
 
 fn default_to_ascii() -> bool {
     let lang = env::var("LANG").unwrap_or_default();
@@ -126,7 +132,25 @@ fn parse_user_colors(path: &std::path::Path) -> std::result::Result<UserColors, 
 }
 
 fn main() -> std::io::Result<()> {
-    let args = Args::parse();
+    let mut cmd = Args::command();
+    cmd = cmd.styles(clap_styles());
+    let matches = cmd.get_matches();
+    let args = Args::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
+
+    if args.list_charsets {
+        print_list_charsets();
+        return Ok(());
+    }
+
+    if args.list_colors {
+        print_list_colors();
+        return Ok(());
+    }
+
+    if args.help_detail {
+        print_help_detail();
+        return Ok(());
+    }
 
     if args.info {
         println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
@@ -183,7 +207,7 @@ fn main() -> std::io::Result<()> {
         args.async_mode,
         args.defaultbg,
         color_scheme,
-        user_colors,
+        user_colors.clone(),
     );
 
     cloud.glitchy = !args.noglitch;
@@ -231,6 +255,7 @@ fn main() -> std::io::Result<()> {
     cloud.reset(w, h);
 
     if let Some(msg) = &args.message {
+        cloud.set_message_border(!args.message_no_border);
         cloud.set_message(msg);
     }
 
