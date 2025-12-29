@@ -51,7 +51,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.NEBULA_TOKEN }}  # Personal Access Token dari owner
+          token: ${{ secrets.NEBULA_TOKEN }}
           fetch-depth: 0
 
       - name: Setup Rust toolchain
@@ -81,45 +81,37 @@ jobs:
           UPDATED=false
           UPDATES_LOG=""
 
-          # Find all workflow files
           for workflow in .github/workflows/*.yml .github/workflows/*.yaml; do
             [ -f "$workflow" ] || continue
 
             echo ""
             echo "📄 Checking: $workflow"
 
-            # Extract all action versions (format: uses: org/action@vX or @vX.Y.Z)
             grep -oP 'uses:\s+\K[^@\s]+@v[0-9]+(\.[0-9]+)*' "$workflow" | sort -u | while read -r action_with_ver; do
               ACTION="${action_with_ver%@*}"
               CURRENT_VER="${action_with_ver#*@}"
 
-              # Skip if not a versioned action
               [[ "$CURRENT_VER" =~ ^v[0-9] ]] || continue
 
               echo "  🔎 Checking: $ACTION @ $CURRENT_VER"
 
-              # Fetch latest version from GitHub API
               if [[ "$ACTION" == */* ]]; then
                 LATEST_TAG=$(curl -s "https://api.github.com/repos/$ACTION/releases/latest" | grep -oP '"tag_name":\s*"\K[^"]+' || echo "")
 
-                # Fallback: check tags if no releases
                 if [ -z "$LATEST_TAG" ]; then
                   LATEST_TAG=$(curl -s "https://api.github.com/repos/$ACTION/tags" | grep -oP '"name":\s*"v\K[0-9]+(\.[0-9]+)*' | head -n1)
                   [ -n "$LATEST_TAG" ] && LATEST_TAG="v$LATEST_TAG"
                 fi
 
                 if [ -n "$LATEST_TAG" ] && [ "$LATEST_TAG" != "$CURRENT_VER" ]; then
-                  # Check if it's a major version update
                   CURRENT_MAJOR="${CURRENT_VER#v}"
                   CURRENT_MAJOR="${CURRENT_MAJOR%%.*}"
                   LATEST_MAJOR="${LATEST_TAG#v}"
                   LATEST_MAJOR="${LATEST_MAJOR%%.*}"
 
-                  # Only update if same major version (avoid breaking changes)
                   if [ "$CURRENT_MAJOR" == "$LATEST_MAJOR" ]; then
                     echo "    ✨ Update available: $CURRENT_VER → $LATEST_TAG"
 
-                    # Perform update
                     sed -i "s|$ACTION@$CURRENT_VER|$ACTION@$LATEST_TAG|g" "$workflow"
 
                     UPDATED=true
@@ -246,38 +238,38 @@ jobs:
             TITLE="chore: auto-update dependencies & workflows"
             BODY="🌌 Automated update by Nebula
 
-📦 Rust Dependencies
-- Updated via cargo update
-- Security audit passed
-- All tests passed
+          📦 Rust Dependencies
+          - Updated via cargo update
+          - Security audit passed
+          - All tests passed
 
-🔄 GitHub Actions
-- Auto-updated workflow versions
-- Ensured compatibility (same major version only)
+          🔄 GitHub Actions
+          - Auto-updated workflow versions
+          - Ensured compatibility (same major version only)
 
-🛡️ Validation
-- ✅ Security audit (cargo-audit)
-- ✅ Dependency policy (cargo-deny)
-- ✅ Code formatting
-- ✅ Build check (dev + release)
-- ✅ Test suite
-- ✅ Clippy check"
+          🛡️ Validation
+          - ✅ Security audit (cargo-audit)
+          - ✅ Dependency policy (cargo-deny)
+          - ✅ Code formatting
+          - ✅ Build check (dev + release)
+          - ✅ Test suite
+          - ✅ Clippy check"
           else
             TITLE="chore(deps): auto-update dependencies"
             BODY="🌌 Automated update by Nebula
 
-📦 Rust Dependencies
-- Updated via cargo update
-- Security audit passed
-- All tests passed
+          📦 Rust Dependencies
+          - Updated via cargo update
+          - Security audit passed
+          - All tests passed
 
-🛡️ Validation
-- ✅ Security audit (cargo-audit)
-- ✅ Dependency policy (cargo-deny)
-- ✅ Code formatting
-- ✅ Build check (dev + release)
-- ✅ Test suite
-- ✅ Clippy check"
+          🛡️ Validation
+          - ✅ Security audit (cargo-audit)
+          - ✅ Dependency policy (cargo-deny)
+          - ✅ Code formatting
+          - ✅ Build check (dev + release)
+          - ✅ Test suite
+          - ✅ Clippy check"
           fi
 
           echo "title=$TITLE" >> $GITHUB_OUTPUT
