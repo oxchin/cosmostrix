@@ -364,7 +364,15 @@ pub fn print_list_charsets() {
     println!("greek        Greek");
     println!("cyrillic     Cyrillic");
     println!("hebrew       Hebrew");
-    println!("devanagari   Devanagari");
+    println!("blocks       Block elements (shading blocks)");
+    println!("symbols      Math/technical symbols");
+    println!("arrows       Arrow symbols");
+    println!("retro        Box-drawing characters");
+    println!("cyberpunk    Katakana + hex + symbols (combo)");
+    println!("hacker       Letters + hex + punc + symbols (combo)");
+    println!("minimal      Dots and simple shapes");
+    println!("code         Letters + digits + punc + symbols (combo)");
+    println!("dna          DNA bases (ACGT)");
     println!("braille      Braille");
     println!("runic        Runic");
 }

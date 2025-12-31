@@ -16,9 +16,14 @@ impl Charset {
     pub const HEBREW: Charset = Charset(0x80);
     pub const BINARY: Charset = Charset(0x100);
     pub const HEX: Charset = Charset(0x200);
-    pub const DEVANAGARI: Charset = Charset(0x400);
     pub const BRAILLE: Charset = Charset(0x800);
     pub const RUNIC: Charset = Charset(0x1000);
+    pub const SYMBOLS: Charset = Charset(0x2000);
+    pub const ARROWS: Charset = Charset(0x4000);
+    pub const BLOCKS: Charset = Charset(0x8000);
+    pub const BOXDRAW: Charset = Charset(0x10000);
+    pub const MINIMAL: Charset = Charset(0x20000);
+    pub const DNA: Charset = Charset(0x40000);
 
     pub const DEFAULT: Charset = Charset(0x7);
     pub const EXTENDED_DEFAULT: Charset = Charset(0xE);
@@ -66,7 +71,30 @@ pub fn charset_from_str(spec: &str, default_to_ascii: bool) -> Result<Charset, S
         "greek" => Ok(Charset::GREEK),
         "cyrillic" => Ok(Charset::CYRILLIC),
         "hebrew" => Ok(Charset::HEBREW),
-        "devanagari" => Ok(Charset::DEVANAGARI),
+        "blocks" => Ok(Charset::BLOCKS),
+        "symbols" => Ok(Charset::SYMBOLS),
+        "arrows" => Ok(Charset::ARROWS),
+        "retro" => Ok(Charset::BOXDRAW),
+        "cyberpunk" => Ok(Charset(
+            Charset::ENGLISH_LETTERS.0
+                | Charset::HEX.0
+                | Charset::KATAKANA.0
+                | Charset::SYMBOLS.0,
+        )),
+        "hacker" => Ok(Charset(
+            Charset::ENGLISH_LETTERS.0
+                | Charset::HEX.0
+                | Charset::ENGLISH_PUNCTUATION.0
+                | Charset::SYMBOLS.0,
+        )),
+        "minimal" => Ok(Charset::MINIMAL),
+        "code" => Ok(Charset(
+            Charset::ENGLISH_LETTERS.0
+                | Charset::ENGLISH_DIGITS.0
+                | Charset::ENGLISH_PUNCTUATION.0
+                | Charset::SYMBOLS.0,
+        )),
+        "dna" => Ok(Charset::DNA),
         "braille" => Ok(Charset::BRAILLE),
         "runic" => Ok(Charset::RUNIC),
         _ => Err(format!(
@@ -132,14 +160,29 @@ pub fn build_chars(
         push_range(&mut out, 0x0590, 0x05FF);
         push_range(&mut out, 0xFB1D, 0xFB4F);
     }
-    if charset.contains(Charset::DEVANAGARI) {
-        push_range(&mut out, 0x0900, 0x097F);
-    }
     if charset.contains(Charset::BRAILLE) {
         push_range(&mut out, 0x2800, 0x28FF);
     }
     if charset.contains(Charset::RUNIC) {
         push_range(&mut out, 0x16A0, 0x16FF);
+    }
+    if charset.contains(Charset::SYMBOLS) {
+        out.extend("∞∑∫√π∆Ωµλ≈≠≤≥×÷±∂∇∈∉∩∪⊂⊃⊆⊇⊕⊗".chars());
+    }
+    if charset.contains(Charset::ARROWS) {
+        out.extend("←→↑↓↔↕⇐⇒⇑⇓⇔↖↗↘↙".chars());
+    }
+    if charset.contains(Charset::BLOCKS) {
+        push_range(&mut out, 0x2580, 0x259F);
+    }
+    if charset.contains(Charset::BOXDRAW) {
+        push_range(&mut out, 0x2500, 0x257F);
+    }
+    if charset.contains(Charset::MINIMAL) {
+        out.extend(".:-=+*·•○●◦◌◍◉◎◇◆□■".chars());
+    }
+    if charset.contains(Charset::DNA) {
+        out.extend("ACGTacgt".chars());
     }
 
     for &(a, b) in user_ranges {
