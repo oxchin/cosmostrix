@@ -41,6 +41,7 @@ impl LastFrame {
 pub struct Terminal {
     stdout: Stdout,
     last: Option<LastFrame>,
+    run_buf: String,
 }
 
 impl Terminal {
@@ -55,6 +56,11 @@ impl Terminal {
         Ok(Self {
             stdout: out,
             last: None,
+            run_buf: {
+                let mut s = String::new();
+                s.reserve(64);
+                s
+            },
         })
     }
 
@@ -88,7 +94,10 @@ impl Terminal {
         }
 
         let can_reuse_last = !needs_full_redraw && self.last.is_some();
-        let do_full_redraw = !can_reuse_last || frame.is_dirty_all();
+        let total_cells = frame.width as usize * frame.height as usize;
+        let dirty_count = frame.dirty_indices().len();
+        let dirty_is_large = total_cells > 0 && dirty_count >= (total_cells / 3);
+        let do_full_redraw = !can_reuse_last || frame.is_dirty_all() || dirty_is_large;
 
         if do_full_redraw {
             let needs_new_last = self
@@ -157,8 +166,7 @@ impl Terminal {
         let dirty = frame.dirty_indices();
         let width_usize = frame.width as usize;
         let mut i = 0usize;
-        let mut run_buf = String::new();
-        run_buf.reserve(64);
+        let run_buf = &mut self.run_buf;
 
         while i < dirty.len() {
             let idx0 = dirty[i];
