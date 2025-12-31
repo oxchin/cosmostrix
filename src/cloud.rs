@@ -13,7 +13,7 @@ use crate::{
     cell::Cell,
     frame::Frame,
     palette::{build_palette, Palette},
-    runtime::{BoldMode, ColorMode, ColorScheme, ShadingMode, UserColors},
+    runtime::{BoldMode, ColorMode, ColorScheme, ShadingMode},
 };
 
 use crate::droplet::Droplet;
@@ -242,8 +242,6 @@ pub struct Cloud {
     message: Vec<MsgChr>,
     message_text: Option<String>,
     message_border: bool,
-
-    user_colors: Option<UserColors>,
     color_scheme: ColorScheme,
     default_background: bool,
 }
@@ -258,7 +256,6 @@ impl Cloud {
         async_mode: bool,
         default_background: bool,
         color_scheme: ColorScheme,
-        user_colors: Option<UserColors>,
     ) -> Self {
         let now = Instant::now();
         let mt = StdRng::seed_from_u64(0x1234567);
@@ -266,12 +263,7 @@ impl Cloud {
         let cloud = Self {
             lines: 25,
             cols: 80,
-            palette: build_palette(
-                color_scheme,
-                color_mode,
-                default_background,
-                user_colors.as_ref(),
-            ),
+            palette: build_palette(color_scheme, color_mode, default_background),
             color_mode,
             full_width,
             shading_distance: matches!(shading_mode, ShadingMode::DistanceFromHead),
@@ -318,7 +310,6 @@ impl Cloud {
             message: Vec::new(),
             message_text: None,
             message_border: true,
-            user_colors,
             color_scheme,
             default_background,
         };
@@ -342,12 +333,7 @@ impl Cloud {
 
     pub fn set_color_scheme(&mut self, scheme: ColorScheme) {
         self.color_scheme = scheme;
-        self.palette = build_palette(
-            scheme,
-            self.color_mode,
-            self.default_background,
-            self.user_colors.as_ref(),
-        );
+        self.palette = build_palette(scheme, self.color_mode, self.default_background);
         self.fill_color_map();
         self.force_draw_everything = true;
     }

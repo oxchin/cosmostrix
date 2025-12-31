@@ -23,7 +23,6 @@ pub enum BoldMode {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ColorScheme {
-    User,
     Green,
     Green2,
     Green3,
@@ -35,19 +34,15 @@ pub enum ColorScheme {
     Gold,
     Rainbow,
     Purple,
-    Pink,
-    Pink2,
+    Neon,
+    Fire,
+    Ocean,
+    Forest,
     Vaporwave,
     Gray,
-}
-
-#[derive(Clone, Debug)]
-pub struct UserColor {
-    pub index: u8,
-    pub rgb_1000: Option<(u16, u16, u16)>,
-}
-
-#[derive(Clone, Debug)]
-pub struct UserColors {
-    pub colors: Vec<UserColor>,
+    Snow,
+    Aurora,
+    FancyDiamond,
+    Cosmos,
+    Nebula,
 }

@@ -1,14 +1,13 @@
 // Copyright (c) 2025 rezk_nightky
 
 use std::io::IsTerminal;
-use std::path::PathBuf;
 use std::str::FromStr;
 
 use clap::Parser;
 
 pub const DEFAULT_PARAMS_USAGE: &str = "DEFAULT PARAMS USAGE:\n  cosmostrix --color green --charset binary --fps 60 --speed 8 --density 1 --maxdpc 3 --bold 1 --shadingmode 0 --glitchpct 10 --glitchms 300,400 --lingerms 1,3000 --shortpct 50 --rippct 33.33333";
 
-fn color_enabled_stdout() -> bool {
+pub fn color_enabled_stdout() -> bool {
     if std::env::var_os("NO_COLOR").is_some() {
         return false;
     }
@@ -74,6 +73,14 @@ fn colorize_help_detail(text: &str) -> String {
     out
 }
 
+pub fn default_params_usage_for_help() -> String {
+    if color_enabled_stdout() {
+        colorize_help_detail(DEFAULT_PARAMS_USAGE)
+    } else {
+        DEFAULT_PARAMS_USAGE.to_string()
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct U16Range {
     pub low: u16,
@@ -121,14 +128,6 @@ pub struct Args {
         help = "Bold mode (min 0 max 2): 0=off, 1=random, 2=all"
     )]
     pub bold: u8,
-
-    #[arg(
-        short = 'C',
-        long = "colorfile",
-        help_heading = "APPEARANCE",
-        help = "Load user palette from a file"
-    )]
-    pub colorfile: Option<PathBuf>,
 
     #[arg(
         short = 'c',
@@ -343,8 +342,13 @@ pub struct Args {
 }
 
 pub fn print_list_charsets() {
-    println!("AVAILABLE CHARSET PRESETS:");
-    println!("NOTE: Use only the VALUE (left side) with --charset.");
+    if color_enabled_stdout() {
+        println!("\x1b[1;36mAVAILABLE CHARSET PRESETS:\x1b[0m");
+        println!("\x1b[2mNOTE: Use only the VALUE (left side) with --charset.\x1b[0m");
+    } else {
+        println!("AVAILABLE CHARSET PRESETS:");
+        println!("NOTE: Use only the VALUE (left side) with --charset.");
+    }
     println!();
     println!("VALUE        DESCRIPTION");
     println!("auto         Auto-select (ASCII_SAFE when non-UTF, otherwise matrix)");
@@ -366,8 +370,13 @@ pub fn print_list_charsets() {
 }
 
 pub fn print_list_colors() {
-    println!("AVAILABLE COLOR THEMES:");
-    println!("NOTE: Use only the VALUE (left side) with --color.");
+    if color_enabled_stdout() {
+        println!("\x1b[1;36mAVAILABLE COLOR THEMES:\x1b[0m");
+        println!("\x1b[2mNOTE: Use only the VALUE (left side) with --color.\x1b[0m");
+    } else {
+        println!("AVAILABLE COLOR THEMES:");
+        println!("NOTE: Use only the VALUE (left side) with --color.");
+    }
     println!();
     println!("VALUE        DESCRIPTION");
     println!("green        Green theme");
@@ -381,16 +390,22 @@ pub fn print_list_colors() {
     println!("gold         Gold theme");
     println!("rainbow      Rainbow theme");
     println!("purple       Purple theme");
-    println!("pink         Pink theme");
-    println!("pink2        Pink variant");
+    println!("neon         Neon theme (alias: synthwave)");
+    println!("fire         Fire theme (alias: inferno)");
+    println!("ocean        Ocean theme (alias: deep-sea)");
+    println!("forest       Forest theme (alias: jungle)");
     println!("vaporwave    Vaporwave theme");
     println!("gray         Gray theme (alias: grey)");
-    println!("user         Use palette from --colorfile");
+    println!("snow         Snow / ice theme");
+    println!("aurora       Aurora theme");
+    println!("fancy-diamond Fancy diamond theme");
+    println!("cosmos       Cosmos theme");
+    println!("nebula       Nebula theme");
 }
 
 pub fn print_help_detail() {
     let block = format!(
-        "{}\n\nUSAGE:\n  cosmostrix [OPTIONS]\n\nGENERAL:\n  -a, --async\n      Enable async rendering.\n      Example: cosmostrix -a\n\n  -s, --screensaver\n      Screensaver mode (exit on keypress).\n      Example: cosmostrix -s\n\n  -F, --fullwidth\n      Use full terminal width.\n      Example: cosmostrix -F\n\n  --duration <seconds>\n      Stop after N seconds (min 0.1 max 86400).\n      Example: cosmostrix --duration 10\n\n  -m, --message <text>\n      Overlay message.\n      Example: cosmostrix -m \"hello\"\n\nAPPEARANCE:\n  -c, --color <name>\n      Set theme (see --list-colors).\n      Example: cosmostrix --color rainbow\n\n  -C, --colorfile <path>\n      Load user palette. When set, color scheme becomes 'user'.\n      Example: cosmostrix --colorfile ./colors.csv\n\n  --colormode <0|16|256|32>\n      Force color mode; otherwise auto-detected from TERM/COLORTERM.\n      Example: cosmostrix --colormode 256\n\n  -b, --bold <0|1|2>\n      Bold style (0 off, 1 random, 2 all).\n      Example: cosmostrix --bold 2\n\n  -M, --shadingmode <0|1>\n      Shading (0 random, 1 distance-from-head).\n      Example: cosmostrix -M 1\n\n  -D, --defaultbg\n      Use terminal default background.\n      Example: cosmostrix -D\n\nPERFORMANCE:\n  -f, --fps <number>\n      Target FPS (min 1 max 240).\n      Example: cosmostrix --fps 30\n\n  -S, --speed <number>\n      Characters per second (rain speed) (min 0.001 max 1000).\n      Example: cosmostrix --speed 12\n\n  -d, --density <number>\n      Droplet density (min 0.01 max 5.0).\n      Example: cosmostrix --density 1.25\n\n  --maxdpc <number>\n      Max droplets per column (min 1 max 3).\n      Example: cosmostrix --maxdpc 2\n\nCHARSET:\n  --charset <name>\n      Charset preset (see --list-charsets).\n      Example: cosmostrix --charset binary\n\n  --chars <string>\n      Custom character override (advanced).\n      Example: cosmostrix --chars \"01\"\n\nGLITCH (ADVANCED):\n  --noglitch\n      Disable glitch effects.\n      Example: cosmostrix --noglitch\n\n  -G, --glitchpct <number>\n      Glitch chance in percent (min 0 max 100).\n      Example: cosmostrix --glitchpct 5\n\n  -g, --glitchms <low,high>\n      Glitch duration range in ms (min 1 max 5000).\n      Example: cosmostrix --glitchms 200,500\n\n  -l, --lingerms <low,high>\n      Linger duration range in ms (min 1 max 60000).\n      Example: cosmostrix --lingerms 1,3000\n\n  --shortpct <number>\n      Short droplet chance in percent (min 0 max 100).\n      Example: cosmostrix --shortpct 40\n\n  -r, --rippct <number>\n      Die-early chance in percent (min 0 max 100).\n      Example: cosmostrix --rippct 20\n\nHELP:\n  --help\n      Show short help.\n\n  --help-detail\n      Show this detailed help.\n\n  -v, --version\n      Print version and exit.\n\n  -i, --info\n      Print version info and exit.\n",
+        "{}\n\nUSAGE:\n  cosmostrix [OPTIONS]\n\nGENERAL:\n  -a, --async\n      Enable async rendering.\n      Example: cosmostrix -a\n\n  -s, --screensaver\n      Screensaver mode (exit on keypress).\n      Example: cosmostrix -s\n\n  -F, --fullwidth\n      Use full terminal width.\n      Example: cosmostrix -F\n\n  --duration <seconds>\n      Stop after N seconds (min 0.1 max 86400).\n      Example: cosmostrix --duration 10\n\n  -m, --message <text>\n      Overlay message.\n      Example: cosmostrix -m \"hello\"\n\nAPPEARANCE:\n  -c, --color <name>\n      Set theme (see --list-colors).\n      Example: cosmostrix --color rainbow\n\n  --colormode <0|16|256|32>\n      Force color mode; otherwise auto-detected from TERM/COLORTERM.\n      Example: cosmostrix --colormode 256\n\n  -b, --bold <0|1|2>\n      Bold style (0 off, 1 random, 2 all).\n      Example: cosmostrix --bold 2\n\n  -M, --shadingmode <0|1>\n      Shading (0 random, 1 distance-from-head).\n      Example: cosmostrix -M 1\n\n  -D, --defaultbg\n      Use terminal default background.\n      Example: cosmostrix -D\n\nPERFORMANCE:\n  -f, --fps <number>\n      Target FPS (min 1 max 240).\n      Example: cosmostrix --fps 30\n\n  -S, --speed <number>\n      Characters per second (rain speed) (min 0.001 max 1000).\n      Example: cosmostrix --speed 12\n\n  -d, --density <number>\n      Droplet density (min 0.01 max 5.0).\n      Example: cosmostrix --density 1.25\n\n  --maxdpc <number>\n      Max droplets per column (min 1 max 3).\n      Example: cosmostrix --maxdpc 2\n\nCHARSET:\n  --charset <name>\n      Charset preset (see --list-charsets).\n      Example: cosmostrix --charset binary\n\n  --chars <string>\n      Custom character override (advanced).\n      Example: cosmostrix --chars \"01\"\n\nGLITCH (ADVANCED):\n  --noglitch\n      Disable glitch effects.\n      Example: cosmostrix --noglitch\n\n  -G, --glitchpct <number>\n      Glitch chance in percent (min 0 max 100).\n      Example: cosmostrix --glitchpct 5\n\n  -g, --glitchms <low,high>\n      Glitch duration range in ms (min 1 max 5000).\n      Example: cosmostrix --glitchms 200,500\n\n  -l, --lingerms <low,high>\n      Linger duration range in ms (min 1 max 60000).\n      Example: cosmostrix --lingerms 1,3000\n\n  --shortpct <number>\n      Short droplet chance in percent (min 0 max 100).\n      Example: cosmostrix --shortpct 40\n\n  -r, --rippct <number>\n      Die-early chance in percent (min 0 max 100).\n      Example: cosmostrix --rippct 20\n\nHELP:\n  --help\n      Show short help.\n\n  --help-detail\n      Show this detailed help.\n\n  -v, --version\n      Print version and exit.\n\n  -i, --info\n      Print version info and exit.\n",
         DEFAULT_PARAMS_USAGE
     );
 

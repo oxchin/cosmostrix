@@ -11,7 +11,6 @@ mod runtime;
 mod terminal;
 
 use std::env;
-use std::fs;
 use std::time::{Duration, Instant};
 
 use clap::builder::styling::{AnsiColor as ClapAnsiColor, Color as ClapColor};
@@ -23,15 +22,23 @@ use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 use crate::charset::{build_chars, charset_from_str, parse_user_hex_chars};
 use crate::cloud::Cloud;
 use crate::config::{
-    print_help_detail, print_list_charsets, print_list_colors, Args, DEFAULT_PARAMS_USAGE,
+    color_enabled_stdout, default_params_usage_for_help, print_help_detail, print_list_charsets,
+    print_list_colors, Args,
 };
 use crate::frame::Frame;
-use crate::runtime::{BoldMode, ColorMode, ColorScheme, ShadingMode, UserColor, UserColors};
+use crate::runtime::{BoldMode, ColorMode, ColorScheme, ShadingMode};
 use crate::terminal::Terminal;
 
-const HELP_TEMPLATE: &str = "\
+const HELP_TEMPLATE_PLAIN: &str = "\
 {before-help}{about-with-newline}
 USAGE:
+  {usage}
+
+{all-args}{after-help}";
+
+const HELP_TEMPLATE_COLOR: &str = "\
+{before-help}{about-with-newline}
+\x1b[1;36mUSAGE:\x1b[0m
   {usage}
 
 {all-args}{after-help}";
@@ -102,7 +109,6 @@ fn detect_color_mode(args: &Args) -> ColorMode {
 
 fn parse_color_scheme(s: &str) -> Result<ColorScheme, String> {
     match s.trim().to_ascii_lowercase().as_str() {
-        "user" => Ok(ColorScheme::User),
         "green" => Ok(ColorScheme::Green),
         "green2" => Ok(ColorScheme::Green2),
         "green3" => Ok(ColorScheme::Green3),
@@ -114,67 +120,31 @@ fn parse_color_scheme(s: &str) -> Result<ColorScheme, String> {
         "gold" => Ok(ColorScheme::Gold),
         "rainbow" => Ok(ColorScheme::Rainbow),
         "purple" => Ok(ColorScheme::Purple),
-        "pink" => Ok(ColorScheme::Pink),
-        "pink2" => Ok(ColorScheme::Pink2),
+        "neon" | "synthwave" => Ok(ColorScheme::Neon),
+        "fire" | "inferno" => Ok(ColorScheme::Fire),
+        "ocean" | "deep-sea" | "deep_sea" | "deepsea" => Ok(ColorScheme::Ocean),
+        "forest" | "jungle" => Ok(ColorScheme::Forest),
         "vaporwave" => Ok(ColorScheme::Vaporwave),
         "gray" | "grey" => Ok(ColorScheme::Gray),
+        "snow" => Ok(ColorScheme::Snow),
+        "aurora" => Ok(ColorScheme::Aurora),
+        "fancy-diamond" | "fancy_diamond" | "fancydiamond" => Ok(ColorScheme::FancyDiamond),
+        "cosmos" => Ok(ColorScheme::Cosmos),
+        "nebula" => Ok(ColorScheme::Nebula),
         _ => Err(format!("invalid color: {} (see --list-colors)", s)),
     }
-}
-
-fn parse_user_colors(path: &std::path::Path) -> std::result::Result<UserColors, String> {
-    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
-    let mut colors: Vec<UserColor> = Vec::new();
-
-    for line in content.lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-        let first = line.chars().next().unwrap_or(' ');
-        if first == ';' || first == '#' || first == '/' || first == '*' || first == '@' {
-            continue;
-        }
-        if line.contains("neo_color_version") {
-            continue;
-        }
-
-        let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
-        if parts.is_empty() {
-            continue;
-        }
-        let idx: u8 = parts[0]
-            .parse::<u16>()
-            .map_err(|_| "invalid color index".to_string())?
-            .min(255) as u8;
-
-        let rgb_1000 = if parts.len() >= 4 {
-            let r: u16 = parts[1].parse().map_err(|_| "invalid r".to_string())?;
-            let g: u16 = parts[2].parse().map_err(|_| "invalid g".to_string())?;
-            let b: u16 = parts[3].parse().map_err(|_| "invalid b".to_string())?;
-            Some((r, g, b))
-        } else {
-            None
-        };
-
-        colors.push(UserColor {
-            index: idx,
-            rgb_1000,
-        });
-    }
-
-    if colors.len() < 2 {
-        return Err("color file must contain at least two colors".to_string());
-    }
-
-    Ok(UserColors { colors })
 }
 
 fn main() -> std::io::Result<()> {
     let mut cmd = Args::command();
     cmd = cmd.styles(clap_styles());
-    cmd = cmd.before_help(DEFAULT_PARAMS_USAGE);
-    cmd = cmd.help_template(HELP_TEMPLATE);
+    cmd = cmd.before_help(default_params_usage_for_help());
+    let help_template = if color_enabled_stdout() {
+        HELP_TEMPLATE_COLOR
+    } else {
+        HELP_TEMPLATE_PLAIN
+    };
+    cmd = cmd.help_template(help_template);
     cmd.build();
 
     if cmd.get_arguments().any(|a| a.get_id().as_str() == "help") {
@@ -225,28 +195,13 @@ fn main() -> std::io::Result<()> {
         _ => BoldMode::Random,
     };
 
-    let mut user_colors: Option<UserColors> = None;
-    if let Some(path) = &args.colorfile {
-        match parse_user_colors(path) {
-            Ok(uc) => user_colors = Some(uc),
-            Err(e) => {
-                eprintln!("{}", e);
-                std::process::exit(1);
-            }
-        }
-    }
-
-    let mut color_scheme = match parse_color_scheme(&args.color) {
+    let color_scheme = match parse_color_scheme(&args.color) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("{}", e);
             std::process::exit(1);
         }
     };
-
-    if user_colors.is_some() {
-        color_scheme = ColorScheme::User;
-    }
 
     let mut term = Terminal::new()?;
     let (w, h) = term.size()?;
@@ -259,7 +214,6 @@ fn main() -> std::io::Result<()> {
         args.async_mode,
         args.defaultbg,
         color_scheme,
-        user_colors.clone(),
     );
 
     cloud.glitchy = !args.noglitch;
@@ -416,7 +370,7 @@ fn main() -> std::io::Result<()> {
                             (KeyCode::Char('2'), _) => cloud.set_color_scheme(ColorScheme::Green2),
                             (KeyCode::Char('3'), _) => cloud.set_color_scheme(ColorScheme::Green3),
                             (KeyCode::Char('4'), _) => cloud.set_color_scheme(ColorScheme::Gold),
-                            (KeyCode::Char('5'), _) => cloud.set_color_scheme(ColorScheme::Pink2),
+                            (KeyCode::Char('5'), _) => cloud.set_color_scheme(ColorScheme::Neon),
                             (KeyCode::Char('6'), _) => cloud.set_color_scheme(ColorScheme::Red),
                             (KeyCode::Char('7'), _) => cloud.set_color_scheme(ColorScheme::Blue),
                             (KeyCode::Char('8'), _) => cloud.set_color_scheme(ColorScheme::Cyan),
@@ -425,7 +379,7 @@ fn main() -> std::io::Result<()> {
                             (KeyCode::Char('!'), _) => cloud.set_color_scheme(ColorScheme::Rainbow),
                             (KeyCode::Char('@'), _) => cloud.set_color_scheme(ColorScheme::Yellow),
                             (KeyCode::Char('#'), _) => cloud.set_color_scheme(ColorScheme::Orange),
-                            (KeyCode::Char('$'), _) => cloud.set_color_scheme(ColorScheme::Pink),
+                            (KeyCode::Char('$'), _) => cloud.set_color_scheme(ColorScheme::Fire),
                             (KeyCode::Char('%'), _) => {
                                 cloud.set_color_scheme(ColorScheme::Vaporwave)
                             }
