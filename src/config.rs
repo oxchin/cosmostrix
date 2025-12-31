@@ -180,6 +180,13 @@ pub struct Args {
     pub duration: Option<f64>,
 
     #[arg(
+        long = "perf-stats",
+        help_heading = "PERFORMANCE",
+        help = "Print performance statistics summary on exit"
+    )]
+    pub perf_stats: bool,
+
+    #[arg(
         short = 'g',
         long = "glitchms",
         default_value = "300,400",
@@ -413,7 +420,7 @@ pub fn print_list_colors() {
 
 pub fn print_help_detail() {
     let block = format!(
-        "{}\n\nUSAGE:\n  cosmostrix [OPTIONS]\n\nGENERAL:\n  -a, --async\n      Enable async rendering.\n      Example: cosmostrix -a\n\n  -s, --screensaver\n      Screensaver mode (exit on keypress).\n      Example: cosmostrix -s\n\n  -F, --fullwidth\n      Use full terminal width.\n      Example: cosmostrix -F\n\n  --duration <seconds>\n      Stop after N seconds (min 0.1 max 86400).\n      Example: cosmostrix --duration 10\n\n  -m, --message <text>\n      Overlay message.\n      Example: cosmostrix -m \"hello\"\n\nAPPEARANCE:\n  -c, --color <name>\n      Set theme (see --list-colors).\n      Example: cosmostrix --color rainbow\n\n  --colormode <0|16|256|32>\n      Force color mode; otherwise auto-detected from TERM/COLORTERM.\n      Example: cosmostrix --colormode 256\n\n  -b, --bold <0|1|2>\n      Bold style (0 off, 1 random, 2 all).\n      Example: cosmostrix --bold 2\n\n  -M, --shadingmode <0|1>\n      Shading (0 random, 1 distance-from-head).\n      Example: cosmostrix -M 1\n\n  -D, --defaultbg\n      Use terminal default background.\n      Example: cosmostrix -D\n\nPERFORMANCE:\n  -f, --fps <number>\n      Target FPS (min 1 max 240).\n      Example: cosmostrix --fps 30\n\n  -S, --speed <number>\n      Characters per second (rain speed) (min 0.001 max 1000).\n      Example: cosmostrix --speed 12\n\n  -d, --density <number>\n      Droplet density (min 0.01 max 5.0).\n      Example: cosmostrix --density 1.25\n\n  --maxdpc <number>\n      Max droplets per column (min 1 max 3).\n      Example: cosmostrix --maxdpc 2\n\nCHARSET:\n  --charset <name>\n      Charset preset (see --list-charsets).\n      Example: cosmostrix --charset binary\n\n  --chars <string>\n      Custom character override (advanced).\n      Example: cosmostrix --chars \"01\"\n\nGLITCH (ADVANCED):\n  --noglitch\n      Disable glitch effects.\n      Example: cosmostrix --noglitch\n\n  -G, --glitchpct <number>\n      Glitch chance in percent (min 0 max 100).\n      Example: cosmostrix --glitchpct 5\n\n  -g, --glitchms <low,high>\n      Glitch duration range in ms (min 1 max 5000).\n      Example: cosmostrix --glitchms 200,500\n\n  -l, --lingerms <low,high>\n      Linger duration range in ms (min 1 max 60000).\n      Example: cosmostrix --lingerms 1,3000\n\n  --shortpct <number>\n      Short droplet chance in percent (min 0 max 100).\n      Example: cosmostrix --shortpct 40\n\n  -r, --rippct <number>\n      Die-early chance in percent (min 0 max 100).\n      Example: cosmostrix --rippct 20\n\nHELP:\n  --help\n      Show short help.\n\n  --help-detail\n      Show this detailed help.\n\n  -v, --version\n      Print version and exit.\n\n  -i, --info\n      Print version info and exit.\n",
+        "{}\n\nUSAGE:\n  cosmostrix [OPTIONS]\n\nGENERAL:\n  -a, --async\n      Enable async rendering.\n      Example: cosmostrix -a\n\n  -s, --screensaver\n      Screensaver mode (exit on keypress).\n      Example: cosmostrix -s\n\n  -F, --fullwidth\n      Use full terminal width.\n      Example: cosmostrix -F\n\n  --duration <seconds>\n      Stop after N seconds (min 0.1 max 86400).\n      Example: cosmostrix --duration 10\n\n  -m, --message <text>\n      Overlay message.\n      Example: cosmostrix -m \"hello\"\n\nAPPEARANCE:\n  -c, --color <name>\n      Set theme (see --list-colors).\n      Example: cosmostrix --color rainbow\n\n  --colormode <0|16|256|32>\n      Force color mode; otherwise auto-detected from TERM/COLORTERM.\n      Example: cosmostrix --colormode 256\n\n  -b, --bold <0|1|2>\n      Bold style (0 off, 1 random, 2 all).\n      Example: cosmostrix --bold 2\n\n  -M, --shadingmode <0|1>\n      Shading (0 random, 1 distance-from-head).\n      Example: cosmostrix -M 1\n\n  -D, --defaultbg\n      Use terminal default background.\n      Example: cosmostrix -D\n\nPERFORMANCE:\n  -f, --fps <number>\n      Target FPS (min 1 max 240).\n      Example: cosmostrix --fps 30\n\n  -S, --speed <number>\n      Characters per second (rain speed) (min 0.001 max 1000).\n      Example: cosmostrix --speed 12\n\n  -d, --density <number>\n      Droplet density (min 0.01 max 5.0).\n      Example: cosmostrix --density 1.25\n\n  --maxdpc <number>\n      Max droplets per column (min 1 max 3).\n      Example: cosmostrix --maxdpc 2\n\n  --perf-stats\n      Print performance statistics summary on exit.\n      Example: cosmostrix --duration 10 --perf-stats\n\nCHARSET:\n  --charset <name>\n      Charset preset (see --list-charsets).\n      Example: cosmostrix --charset binary\n\n  --chars <string>\n      Custom character override (advanced).\n      Example: cosmostrix --chars \"01\"\n\nGLITCH (ADVANCED):\n  --noglitch\n      Disable glitch effects.\n      Example: cosmostrix --noglitch\n\n  -G, --glitchpct <number>\n      Glitch chance in percent (min 0 max 100).\n      Example: cosmostrix --glitchpct 5\n\n  -g, --glitchms <low,high>\n      Glitch duration range in ms (min 1 max 5000).\n      Example: cosmostrix --glitchms 200,500\n\n  -l, --lingerms <low,high>\n      Linger duration range in ms (min 1 max 60000).\n      Example: cosmostrix --lingerms 1,3000\n\n  --shortpct <number>\n      Short droplet chance in percent (min 0 max 100).\n      Example: cosmostrix --shortpct 40\n\n  -r, --rippct <number>\n      Die-early chance in percent (min 0 max 100).\n      Example: cosmostrix --rippct 20\n\nHELP:\n  --help\n      Show short help.\n\n  --help-detail\n      Show this detailed help.\n\n  -v, --version\n      Print version and exit.\n\n  -i, --info\n      Print version info and exit.\n",
         DEFAULT_PARAMS_USAGE
     );
 
@@ -430,6 +437,7 @@ pub fn print_help_detail() {
         print!("{}", tail);
     }
     println!("  --duration <seconds>     min 0.1 max 86400 (<=0 disables)");
+    println!("  --perf-stats             print performance summary on exit");
     println!("  --fps <number>           min 1 max 240");
     println!("  --speed <number>         min 0.001 max 1000");
     println!("  --density <number>       min 0.01 max 5.0");
@@ -437,8 +445,8 @@ pub fn print_help_detail() {
     println!("  --glitchpct <number>     min 0 max 100");
     println!("  --shortpct <number>      min 0 max 100");
     println!("  --rippct <number>        min 0 max 100");
-    println!("  --glitchms <low,high>    min 1 max 5000 (each; clamped)");
-    println!("  --lingerms <low,high>    min 1 max 60000 (each; clamped)");
+    println!("  --glitchms <low,high>    min 1 max 5000 (each)");
+    println!("  --lingerms <low,high>    min 1 max 60000 (each)");
     println!("  --bold <0|1|2>           min 0 max 2");
     println!("  --shadingmode <0|1>      min 0 max 1");
     println!("  --colormode <0|16|256|32> allowed values only");

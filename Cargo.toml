@@ -28,6 +28,16 @@ codegen-units = 1
 panic = "abort"
 overflow-checks = false
 
+[profile.pro]
+inherits = "release"
+opt-level = 3
+debug = false
+strip = true
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+overflow-checks = false
+
 [profile.release-with-debug]
 inherits = "release"
 debug = true

@@ -59,18 +59,50 @@ fn clap_styles() -> ClapStyles {
         .placeholder(ClapStyle::new().fg_color(Some(ClapColor::Ansi(ClapAnsiColor::Magenta))))
 }
 
-fn clamp_f64(v: f64, min: f64, max: f64, fallback: f64) -> f64 {
+fn require_f64_range(name: &str, v: f64, min: f64, max: f64) -> f64 {
     if !v.is_finite() {
-        return fallback;
+        eprintln!("failed to apply {} {} (must be a finite number)", name, v);
+        std::process::exit(1);
     }
-    v.clamp(min, max)
+    if v < min || v > max {
+        eprintln!(
+            "failed to apply {} {} (min {} max {})",
+            name, v, min, max
+        );
+        std::process::exit(1);
+    }
+    v
 }
 
-fn clamp_f32(v: f32, min: f32, max: f32, fallback: f32) -> f32 {
+fn require_f32_range(name: &str, v: f32, min: f32, max: f32) -> f32 {
     if !v.is_finite() {
-        return fallback;
+        eprintln!("failed to apply {} {} (must be a finite number)", name, v);
+        std::process::exit(1);
     }
-    v.clamp(min, max)
+    if v < min || v > max {
+        eprintln!(
+            "failed to apply {} {} (min {} max {})",
+            name, v, min, max
+        );
+        std::process::exit(1);
+    }
+    v
+}
+
+fn require_u8_range(name: &str, v: u8, min: u8, max: u8) -> u8 {
+    if v < min || v > max {
+        eprintln!("failed to apply {} {} (min {} max {})", name, v, min, max);
+        std::process::exit(1);
+    }
+    v
+}
+
+fn require_u16_range(name: &str, v: u16, min: u16, max: u16) -> u16 {
+    if v < min || v > max {
+        eprintln!("failed to apply {} {} (min {} max {})", name, v, min, max);
+        std::process::exit(1);
+    }
+    v
 }
 
 fn default_to_ascii() -> bool {
@@ -184,16 +216,28 @@ fn main() -> std::io::Result<()> {
     let def_ascii = default_to_ascii();
     let color_mode = detect_color_mode(&args);
 
-    let shading_mode = match args.shading_mode {
+    let shading_mode = match require_u8_range("--shadingmode", args.shading_mode, 0, 1) {
         1 => ShadingMode::DistanceFromHead,
         _ => ShadingMode::Random,
     };
 
-    let bold_mode = match args.bold.min(2) {
+    let bold_mode = match require_u8_range("--bold", args.bold, 0, 2) {
         0 => BoldMode::Off,
         2 => BoldMode::All,
         _ => BoldMode::Random,
     };
+
+    let target_fps = require_f64_range("--fps", args.fps, 1.0, 240.0);
+    let duration_s = args.duration.map(|s| {
+        if !s.is_finite() {
+            eprintln!("failed to apply --duration {} (must be a finite number)", s);
+            std::process::exit(1);
+        }
+        if s > 0.0 {
+            return require_f64_range("--duration", s, 0.1, 86400.0);
+        }
+        s
+    });
 
     let color_scheme = match parse_color_scheme(&args.color) {
         Ok(c) => c,
@@ -203,36 +247,16 @@ fn main() -> std::io::Result<()> {
         }
     };
 
-    let mut term = Terminal::new()?;
-    let (w, h) = term.size()?;
-
-    let mut cloud = Cloud::new(
-        color_mode,
-        args.fullwidth,
-        shading_mode,
-        bold_mode,
-        args.async_mode,
-        args.defaultbg,
-        color_scheme,
-    );
-
-    cloud.glitchy = !args.noglitch;
-    cloud.set_glitch_pct(clamp_f32(args.glitch_pct, 0.0, 100.0, 10.0) / 100.0);
-
-    let glitch_low = args.glitch_ms.low.clamp(1, 5000);
-    let glitch_high = args.glitch_ms.high.clamp(1, 5000);
-    cloud.set_glitch_times(glitch_low, glitch_high);
-
-    let linger_low = args.linger_ms.low.clamp(1, 60000);
-    let linger_high = args.linger_ms.high.clamp(1, 60000);
-    cloud.set_linger_times(linger_low, linger_high);
-
-    cloud.short_pct = clamp_f32(args.shortpct, 0.0, 100.0, 50.0) / 100.0;
-    cloud.die_early_pct = clamp_f32(args.rippct, 0.0, 100.0, 33.33333) / 100.0;
-    cloud.set_max_droplets_per_column(args.max_droplets_per_column.clamp(1, 3));
-
-    cloud.set_droplet_density(clamp_f32(args.density, 0.01, 5.0, 1.0));
-    cloud.set_chars_per_sec(clamp_f32(args.speed, 0.001, 1000.0, 8.0));
+    let glitch_pct = require_f32_range("--glitchpct", args.glitch_pct, 0.0, 100.0);
+    let glitch_low = require_u16_range("--glitchms low", args.glitch_ms.low, 1, 5000);
+    let glitch_high = require_u16_range("--glitchms high", args.glitch_ms.high, 1, 5000);
+    let linger_low = require_u16_range("--lingerms low", args.linger_ms.low, 1, 60000);
+    let linger_high = require_u16_range("--lingerms high", args.linger_ms.high, 1, 60000);
+    let short_pct = require_f32_range("--shortpct", args.shortpct, 0.0, 100.0);
+    let die_early_pct = require_f32_range("--rippct", args.rippct, 0.0, 100.0);
+    let max_dpc = require_u8_range("--maxdpc", args.max_droplets_per_column, 1, 3);
+    let density = require_f32_range("--density", args.density, 0.01, 5.0);
+    let speed = require_f32_range("--speed", args.speed, 0.001, 1000.0);
 
     let mut user_ranges: Vec<(char, char)> = Vec::new();
     if let Some(spec) = &args.chars {
@@ -264,6 +288,30 @@ fn main() -> std::io::Result<()> {
     };
 
     let chars = build_chars(charset, &user_ranges, def_ascii);
+
+    let mut term = Terminal::new()?;
+    let (w, h) = term.size()?;
+
+    let mut cloud = Cloud::new(
+        color_mode,
+        args.fullwidth,
+        shading_mode,
+        bold_mode,
+        args.async_mode,
+        args.defaultbg,
+        color_scheme,
+    );
+
+    cloud.glitchy = !args.noglitch;
+    cloud.set_glitch_pct(glitch_pct / 100.0);
+    cloud.set_glitch_times(glitch_low, glitch_high);
+    cloud.set_linger_times(linger_low, linger_high);
+    cloud.short_pct = short_pct / 100.0;
+    cloud.die_early_pct = die_early_pct / 100.0;
+    cloud.set_max_droplets_per_column(max_dpc);
+    cloud.set_droplet_density(density);
+    cloud.set_chars_per_sec(speed);
+
     cloud.init_chars(chars);
     cloud.reset(w, h);
 
@@ -279,13 +327,22 @@ fn main() -> std::io::Result<()> {
         if !s.is_finite() || s <= 0.0 {
             return None;
         }
-        let s = s.clamp(0.1, 86400.0);
+        let s = duration_s.unwrap_or(s);
         Some(start_time + Duration::from_secs_f64(s))
     });
 
-    let target_fps = clamp_f64(args.fps, 1.0, 240.0, 60.0);
     let target_period = Duration::from_secs_f64(1.0 / target_fps);
+    let target_period_s = target_period.as_secs_f32().max(0.000_001);
     let mut next_frame = Instant::now();
+    let mut perf_pressure: f32 = 0.0;
+
+    let mut perf_frames: u64 = 0;
+    let mut perf_drawn_frames: u64 = 0;
+    let mut perf_work_sum_s: f64 = 0.0;
+    let mut perf_work_max_s: f32 = 0.0;
+    let mut perf_pressure_sum: f64 = 0.0;
+    let mut perf_pressure_max: f32 = 0.0;
+    let mut perf_overshoot_frames: u64 = 0;
 
     while cloud.raining {
         if end_time.is_some_and(|end| Instant::now() >= end) {
@@ -419,9 +476,40 @@ fn main() -> std::io::Result<()> {
             cloud.force_draw_everything();
         }
 
+        cloud.set_perf_pressure(perf_pressure);
+        let sim_base_s = target_period.as_secs_f64() * 3.0;
+        let sim_factor = (1.0 - (perf_pressure as f64) * 0.7).clamp(0.3, 1.0);
+        let sim_min_s = (target_period.as_secs_f64() * 0.5).max(0.001);
+        let sim_max_s = sim_base_s.min(0.5);
+        let sim_cap_s = (sim_base_s * sim_factor).clamp(sim_min_s, sim_max_s);
+        cloud.set_max_sim_delta(Duration::from_secs_f64(sim_cap_s));
+
+        let work_start = Instant::now();
         cloud.rain(&mut frame);
-        if frame.is_dirty_all() || !frame.dirty_indices().is_empty() {
+        let did_draw = frame.is_dirty_all() || !frame.dirty_indices().is_empty();
+        if did_draw {
             term.draw(&mut frame)?;
+        }
+        let work_s = work_start.elapsed().as_secs_f32();
+        let overshoot = ((work_s / target_period_s) - 1.0).max(0.0).min(2.0);
+        if overshoot > 0.0 {
+            perf_pressure = (perf_pressure + (overshoot * 0.25)).min(1.0);
+        } else {
+            perf_pressure = (perf_pressure - 0.02).max(0.0);
+        }
+
+        if args.perf_stats {
+            perf_frames = perf_frames.saturating_add(1);
+            if did_draw {
+                perf_drawn_frames = perf_drawn_frames.saturating_add(1);
+            }
+            perf_work_sum_s += work_s as f64;
+            perf_work_max_s = perf_work_max_s.max(work_s);
+            perf_pressure_sum += perf_pressure as f64;
+            perf_pressure_max = perf_pressure_max.max(perf_pressure);
+            if overshoot > 0.0 {
+                perf_overshoot_frames = perf_overshoot_frames.saturating_add(1);
+            }
         }
 
         next_frame += target_period;
@@ -429,6 +517,34 @@ fn main() -> std::io::Result<()> {
         if now > next_frame {
             next_frame = now;
         }
+    }
+
+    if args.perf_stats {
+        drop(term);
+        let elapsed = start_time.elapsed();
+        let elapsed_s = elapsed.as_secs_f64().max(0.000_001);
+
+        let frames = perf_frames.max(1);
+        let avg_work_ms = (perf_work_sum_s / frames as f64) * 1000.0;
+        let avg_pressure = perf_pressure_sum / frames as f64;
+        let avg_fps = (perf_frames as f64) / elapsed_s;
+        let drawn_ratio = (perf_drawn_frames as f64) / (perf_frames as f64).max(1.0);
+
+        println!("PERF STATS:");
+        println!("  elapsed_s: {:.3}", elapsed_s);
+        println!("  target_fps: {:.3}", target_fps);
+        println!("  avg_fps: {:.3}", avg_fps);
+        println!("  frames: {}", perf_frames);
+        println!("  drawn_frames: {} ({:.1}%)", perf_drawn_frames, drawn_ratio * 100.0);
+        println!("  avg_work_ms: {:.3}", avg_work_ms);
+        println!("  max_work_ms: {:.3}", perf_work_max_s as f64 * 1000.0);
+        println!(
+            "  overshoot_frames: {} ({:.1}%)",
+            perf_overshoot_frames,
+            (perf_overshoot_frames as f64) / (perf_frames as f64).max(1.0) * 100.0
+        );
+        println!("  avg_perf_pressure: {:.3}", avg_pressure);
+        println!("  max_perf_pressure: {:.3}", perf_pressure_max);
     }
 
     Ok(())

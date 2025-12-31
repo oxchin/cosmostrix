@@ -233,9 +233,13 @@ pub struct Cloud {
     last_glitch_time: Instant,
     next_glitch_time: Instant,
     last_spawn_time: Instant,
+    spawn_remainder: f32,
     pause_time: Option<Instant>,
 
     force_draw_everything: bool,
+
+    perf_pressure: f32,
+    max_sim_delta: Duration,
 
     shading_mode: ShadingMode,
 
@@ -304,8 +308,11 @@ impl Cloud {
             last_glitch_time: now,
             next_glitch_time: now + Duration::from_millis(300),
             last_spawn_time: now,
+            spawn_remainder: 0.0,
             pause_time: None,
             force_draw_everything: false,
+            perf_pressure: 0.0,
+            max_sim_delta: Duration::from_millis(0),
             shading_mode,
             message: Vec::new(),
             message_text: None,
@@ -387,6 +394,14 @@ impl Cloud {
         self.max_droplets_per_column = v;
     }
 
+    pub fn set_perf_pressure(&mut self, p: f32) {
+        self.perf_pressure = p.clamp(0.0, 1.0);
+    }
+
+    pub fn set_max_sim_delta(&mut self, d: Duration) {
+        self.max_sim_delta = d;
+    }
+
     pub fn toggle_pause(&mut self) {
         self.pause = !self.pause;
         if self.pause {
@@ -443,6 +458,7 @@ impl Cloud {
         self.next_glitch_time =
             now + Duration::from_millis(self.rand_glitch_ms.sample(&mut self.mt) as u64);
         self.last_spawn_time = now;
+        self.spawn_remainder = 0.0;
         self.force_draw_everything = true;
     }
 
@@ -598,10 +614,17 @@ impl Cloud {
         d.head_stop_time = None;
     }
 
-    fn spawn_droplets(&mut self, now: Instant) {
-        let elapsed = now.saturating_duration_since(self.last_spawn_time);
+    fn spawn_droplets(&mut self, now: Instant, scale: f32) {
+        let mut elapsed = now.saturating_duration_since(self.last_spawn_time);
+        if self.max_sim_delta > Duration::from_millis(0) {
+            elapsed = elapsed.min(self.max_sim_delta);
+        }
+        self.last_spawn_time = now;
+
         let elapsed_sec = elapsed.as_secs_f32();
-        let to_spawn = ((elapsed_sec * self.droplets_per_sec) as usize).min(self.num_droplets);
+        let budget = (elapsed_sec * self.droplets_per_sec * scale).max(0.0) + self.spawn_remainder;
+        let to_spawn = (budget.floor() as usize).min(self.num_droplets);
+        self.spawn_remainder = budget - (to_spawn as f32);
         if to_spawn == 0 {
             return;
         }
@@ -648,9 +671,7 @@ impl Cloud {
             spawned += 1;
         }
 
-        if spawned > 0 {
-            self.last_spawn_time = now;
-        }
+        let _ = spawned;
     }
 
     pub fn force_draw_everything(&mut self) {
@@ -824,13 +845,19 @@ impl Cloud {
         }
 
         let now = Instant::now();
-        self.spawn_droplets(now);
+        let spawn_scale = (1.0 - (0.75 * self.perf_pressure)).clamp(0.25, 1.0);
+        self.spawn_droplets(now, spawn_scale);
 
         if self.force_draw_everything {
             frame.clear_with_bg(self.palette.bg);
         }
 
-        let time_for_glitch = self.time_for_glitch(now);
+        let glitch_due = self.time_for_glitch(now);
+        let allow_glitch = glitch_due && self.perf_pressure < 0.35;
+        let time_for_glitch = allow_glitch;
+
+        let max_sim_delta = self.max_sim_delta;
+        let use_sim_cap = max_sim_delta > Duration::from_millis(0);
 
         // Update pass (mut self)
         for i in 0..self.droplets.len() {
@@ -840,7 +867,17 @@ impl Cloud {
 
             let (col, start_line, hp, cp_idx, free_col, died) = {
                 let d = &mut self.droplets[i];
-                let free_col = d.advance(now, self.lines);
+                let adv_now = if use_sim_cap {
+                    if let Some(last) = d.last_time {
+                        let max_now = last + max_sim_delta;
+                        if now > max_now { max_now } else { now }
+                    } else {
+                        now
+                    }
+                } else {
+                    now
+                };
+                let free_col = d.advance(adv_now, self.lines);
                 let col = d.bound_col;
                 let start_line = d.tail_put_line.map(|v| v + 1).unwrap_or(0);
                 let hp = d.head_put_line;
@@ -906,6 +943,10 @@ impl Cloud {
             self.last_glitch_time = now;
             let ms = self.rand_glitch_ms.sample(&mut self.mt) as u64;
             self.next_glitch_time = self.last_glitch_time + Duration::from_millis(ms);
+        } else if glitch_due {
+            self.last_glitch_time = now;
+            let ms = self.rand_glitch_ms.sample(&mut self.mt) as u64;
+            self.next_glitch_time = self.last_glitch_time + Duration::from_millis(ms);
         }
 
         self.force_draw_everything = false;
@@ -929,7 +970,6 @@ mod tests {
             false,
             true,
             ColorScheme::Green,
-            None,
         );
         cloud.init_chars(vec!['0', '1']);
         cloud.reset(20, 10);
