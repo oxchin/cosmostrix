@@ -76,10 +76,7 @@ pub fn charset_from_str(spec: &str, default_to_ascii: bool) -> Result<Charset, S
         "arrows" => Ok(Charset::ARROWS),
         "retro" => Ok(Charset::BOXDRAW),
         "cyberpunk" => Ok(Charset(
-            Charset::ENGLISH_LETTERS.0
-                | Charset::HEX.0
-                | Charset::KATAKANA.0
-                | Charset::SYMBOLS.0,
+            Charset::ENGLISH_LETTERS.0 | Charset::HEX.0 | Charset::KATAKANA.0 | Charset::SYMBOLS.0,
         )),
         "hacker" => Ok(Charset(
             Charset::ENGLISH_LETTERS.0

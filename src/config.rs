@@ -25,9 +25,8 @@ fn colorize_help_detail(text: &str) -> String {
             .map(|l| (l, "\n"))
             .unwrap_or((chunk, ""));
 
-        let is_heading = !line.starts_with(' ')
-            && line.ends_with(':')
-            && line == line.to_ascii_uppercase();
+        let is_heading =
+            !line.starts_with(' ') && line.ends_with(':') && line == line.to_ascii_uppercase();
 
         if is_heading {
             out.push_str("\x1b[1;36m");
@@ -352,7 +351,6 @@ pub struct Args {
         help = "Print version and exit"
     )]
     pub version: bool,
-
 }
 
 pub fn print_list_charsets() {

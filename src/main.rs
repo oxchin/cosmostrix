@@ -68,10 +68,7 @@ fn require_f64_range(name: &str, v: f64, min: f64, max: f64) -> f64 {
         std::process::exit(1);
     }
     if v < min || v > max {
-        eprintln!(
-            "failed to apply {} {} (min {} max {})",
-            name, v, min, max
-        );
+        eprintln!("failed to apply {} {} (min {} max {})", name, v, min, max);
         std::process::exit(1);
     }
     v
@@ -83,10 +80,7 @@ fn require_f32_range(name: &str, v: f32, min: f32, max: f32) -> f32 {
         std::process::exit(1);
     }
     if v < min || v > max {
-        eprintln!(
-            "failed to apply {} {} (min {} max {})",
-            name, v, min, max
-        );
+        eprintln!("failed to apply {} {} (min {} max {})", name, v, min, max);
         std::process::exit(1);
     }
     v
@@ -193,7 +187,7 @@ fn main() -> std::io::Result<()> {
 
     if let Ok(mut signals) = Signals::new([SIGINT, SIGTERM, SIGHUP]) {
         thread::spawn(move || {
-            for sig in signals.forever() {
+            if let Some(sig) = signals.forever().next() {
                 restore_terminal_best_effort();
                 std::process::exit(128 + sig);
             }
@@ -240,8 +234,18 @@ fn main() -> std::io::Result<()> {
         let effective = detect_color_mode(&args);
 
         println!("BITCOLOR CHECK:");
-        println!("  COLORTERM: {}", if colorterm.is_empty() { "(unset)" } else { &colorterm });
-        println!("  TERM: {}", if term.is_empty() { "(unset)" } else { &term });
+        println!(
+            "  COLORTERM: {}",
+            if colorterm.is_empty() {
+                "(unset)"
+            } else {
+                &colorterm
+            }
+        );
+        println!(
+            "  TERM: {}",
+            if term.is_empty() { "(unset)" } else { &term }
+        );
         println!("  auto_detected: {}", color_mode_label(auto));
         if args.colormode.is_some() {
             println!("  forced: {}", color_mode_label(effective));
@@ -540,7 +544,7 @@ fn main() -> std::io::Result<()> {
             term.draw(&mut frame)?;
         }
         let work_s = work_start.elapsed().as_secs_f32();
-        let overshoot = ((work_s / target_period_s) - 1.0).max(0.0).min(2.0);
+        let overshoot = ((work_s / target_period_s) - 1.0).clamp(0.0, 2.0);
         if overshoot > 0.0 {
             perf_pressure = (perf_pressure + (overshoot * 0.25)).min(1.0);
         } else {
@@ -584,7 +588,11 @@ fn main() -> std::io::Result<()> {
         println!("  target_fps: {:.3}", target_fps);
         println!("  avg_fps: {:.3}", avg_fps);
         println!("  frames: {}", perf_frames);
-        println!("  drawn_frames: {} ({:.1}%)", perf_drawn_frames, drawn_ratio * 100.0);
+        println!(
+            "  drawn_frames: {} ({:.1}%)",
+            perf_drawn_frames,
+            drawn_ratio * 100.0
+        );
         println!("  avg_work_ms: {:.3}", avg_work_ms);
         println!("  max_work_ms: {:.3}", perf_work_max_s as f64 * 1000.0);
         println!(

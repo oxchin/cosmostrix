@@ -14,11 +14,7 @@ fn from_ansi_list(list: &[u8]) -> Vec<Color> {
     list.iter().map(|&v| Color::AnsiValue(v)).collect()
 }
 
-pub fn build_palette(
-    scheme: ColorScheme,
-    mode: ColorMode,
-    default_background: bool,
-) -> Palette {
+pub fn build_palette(scheme: ColorScheme, mode: ColorMode, default_background: bool) -> Palette {
     let mut bg = if default_background {
         None
     } else {
@@ -108,7 +104,13 @@ pub fn build_palette(
         },
         ColorScheme::Ocean => match mode {
             ColorMode::Mono => vec![Color::White],
-            ColorMode::Color16 => vec![Color::DarkBlue, Color::Blue, Color::DarkCyan, Color::Cyan, Color::White],
+            ColorMode::Color16 => vec![
+                Color::DarkBlue,
+                Color::Blue,
+                Color::DarkCyan,
+                Color::Cyan,
+                Color::White,
+            ],
             _ => from_ansi_list(&[17, 18, 19, 24, 30, 37, 44, 51, 87, 159, 231]),
         },
         ColorScheme::Forest => match mode {

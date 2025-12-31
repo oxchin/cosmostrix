@@ -22,7 +22,7 @@ See `benchmark/README.md` for profiling artifacts and a reproducible benchmark s
 
 ## Features
 
-- Multiple built-in color schemes + user-defined palettes (`--colorfile`)
+- Multiple built-in color schemes
 - Configurable speed, density, FPS, glitching, shading, and boldness
 - Unicode character sets (`--charset`) and custom ranges (`--chars`)
 - Screensaver mode (`--screensaver`)
@@ -119,7 +119,6 @@ These flags match the current Rust implementation (`src/config.rs`).
 ```text
  -a, --async                  enable async column speeds
  -b, --bold <NUM>             0=off, 1=random, 2=all
- -C, --colorfile <FILE>       load user colors from file (legacy-compatible format)
  -c, --color <COLOR>          color scheme (default: green)
  -D, --defaultbg              use terminal default background color
  -d, --density <NUM>          droplet density (default: 1.0)
@@ -131,7 +130,7 @@ These flags match the current Rust implementation (`src/config.rs`).
  -l, --lingerms <LO,HI>       linger timing range in ms (default: 1,3000)
  -M, --shadingmode <NUM>      0=random, 1=distance-from-head (default: 0)
  -m, --message <TEXT>         overlay message
-     --maxdpc <NUM>           max droplets per column (clamped to 1..3, default: 3)
+     --maxdpc <NUM>           max droplets per column (min 1 max 3, default: 3)
      --noglitch               disable glitch
  -r, --rippct <PCT>           die-early percent (default: 33.33333)
  -S, --speed <NUM>            chars per second (default: 8)
@@ -139,46 +138,24 @@ These flags match the current Rust implementation (`src/config.rs`).
      --shortpct <PCT>         short droplet percent (default: 50)
      --charset <NAME>         character set (default: binary)
      --chars <HEX...>         custom unicode hex ranges (pairs)
-     --colormode <MODE>       force color mode (0, 16, 256, 32)
-     --info                   print build info and exit
+     --colormode <MODE>       force color mode (0, 8, 24)
+     --check-bitcolor          print detected terminal color capability and exit
+     --info                   print version info and exit
 ```
 
 ## Color schemes
 
 `--color` supports:
 
-`user`, `green`, `green2`, `green3`, `gold`, `yellow`, `orange`, `red`, `blue`, `cyan`, `purple`, `pink`, `pink2`, `vaporwave`, `gray`, `rainbow`
+`green`, `green2`, `green3`, `gold`, `yellow`, `orange`, `red`, `blue`, `cyan`, `purple`, `neon`, `fire`, `ocean`, `forest`, `vaporwave`, `gray`, `snow`, `aurora`, `fancy-diamond`, `cosmos`, `nebula`, `rainbow`
 
 `gray` also accepts `grey`.
-
-If `--colorfile` is provided, Cosmostrix automatically switches to `user` color scheme.
-
-## User color file (`--colorfile`)
-
-- File is parsed line-by-line; empty lines are ignored.
-- Lines starting with `;`, `#`, `/`, `*`, `@` are treated as comments.
-- Each non-comment line is a comma-separated record:
-  - `INDEX` (0-255) OR
-  - `INDEX, R, G, B` where `R/G/B` are 0..1000 (used for truecolor)
-- The first record is used as the background color (unless `--defaultbg` is set).
-- At least 2 colors are required.
-
-Example:
-
-```text
-# background
-16, 0, 0, 0
-# droplets
-46, 0, 1000, 0
-82, 200, 1000, 200
-231, 1000, 1000, 1000
-```
 
 ## Charset (`--charset`) and custom ranges (`--chars`)
 
 Built-in charsets:
 
-`auto`, `matrix`, `ascii`, `extended`, `english`, `digits`, `punc`, `binary`, `hex`, `katakana`, `greek`, `cyrillic`, `hebrew`, `devanagari`, `braille`, `runic`
+`auto`, `matrix`, `ascii`, `extended`, `english`, `digits`, `punc`, `binary`, `hex`, `katakana`, `greek`, `cyrillic`, `hebrew`, `blocks`, `symbols`, `arrows`, `retro`, `cyberpunk`, `hacker`, `minimal`, `code`, `dna`, `braille`, `runic`
 
 - `binary` also accepts `bin` and `01`.
 - `auto` chooses a safe charset based on `LANG`:
@@ -198,14 +175,18 @@ If `--colormode` isn't set, Cosmostrix tries to detect terminal capabilities:
 
 - `COLORTERM` contains `truecolor` / `24bit` -> truecolor
 - `TERM` contains `256color` -> 256-color
-- otherwise -> 16-color
+- `TERM` equals `dumb` -> mono
+- otherwise -> 256-color
+
+To inspect what Cosmostrix detects on your system:
+
+- `cosmostrix --check-bitcolor`
 
 You can override with:
 
 - `--colormode 0` (mono)
-- `--colormode 16`
-- `--colormode 256`
-- `--colormode 32` (truecolor)
+- `--colormode 8` (256-color)
+- `--colormode 24` (truecolor)
 
 ## Runtime controls (keys)
 
@@ -226,7 +207,7 @@ Controls are handled in `src/main.rs`:
  2              green2
  3              green3
  4              gold
- 5              pink2
+ 5              neon
  6              red
  7              blue
  8              cyan
@@ -235,7 +216,7 @@ Controls are handled in `src/main.rs`:
  !              rainbow
  @              yellow
  #              orange
- $              pink
+ $              fire
  %              vaporwave
 ```
 

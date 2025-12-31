@@ -264,7 +264,7 @@ impl Cloud {
         let now = Instant::now();
         let mt = StdRng::seed_from_u64(0x1234567);
 
-        let cloud = Self {
+        Self {
             lines: 25,
             cols: 80,
             palette: build_palette(color_scheme, color_mode, default_background),
@@ -319,9 +319,7 @@ impl Cloud {
             message_border: true,
             color_scheme,
             default_background,
-        };
-
-        cloud
+        }
     }
 
     pub fn set_message(&mut self, msg: &str) {
@@ -870,7 +868,11 @@ impl Cloud {
                 let adv_now = if use_sim_cap {
                     if let Some(last) = d.last_time {
                         let max_now = last + max_sim_delta;
-                        if now > max_now { max_now } else { now }
+                        if now > max_now {
+                            max_now
+                        } else {
+                            now
+                        }
                     } else {
                         now
                     }
@@ -939,11 +941,7 @@ impl Cloud {
             self.draw_message(frame);
         }
 
-        if time_for_glitch {
-            self.last_glitch_time = now;
-            let ms = self.rand_glitch_ms.sample(&mut self.mt) as u64;
-            self.next_glitch_time = self.last_glitch_time + Duration::from_millis(ms);
-        } else if glitch_due {
+        if time_for_glitch || glitch_due {
             self.last_glitch_time = now;
             let ms = self.rand_glitch_ms.sample(&mut self.mt) as u64;
             self.next_glitch_time = self.last_glitch_time + Duration::from_millis(ms);
