@@ -209,7 +209,15 @@ fn main() -> std::io::Result<()> {
         cmd = cmd.mut_arg("help", |a| a.help_heading("HELP"));
     }
     cmd.build();
-    let matches = cmd.get_matches();
+
+    let mut argv: Vec<std::ffi::OsString> = env::args_os().collect();
+    for arg in argv.iter_mut().skip(1) {
+        if arg == "-mB" || arg == "-mb" {
+            *arg = "--message-no-border".into();
+        }
+    }
+
+    let matches = cmd.get_matches_from(argv);
     let args = Args::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
 
     if args.list_charsets {

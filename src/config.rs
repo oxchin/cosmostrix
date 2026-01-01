@@ -242,9 +242,8 @@ pub struct Args {
 
     #[arg(
         long = "message-no-border",
-        alias = "mB",
         help_heading = "GENERAL",
-        help = "Draw message box without border (use with --message)"
+        help = "Draw message box without border (use with --message; shorthand: -mB)"
     )]
     pub message_no_border: bool,
 
@@ -446,7 +445,7 @@ pub fn print_help_detail() {
         print!("{}", block);
     }
 
-    let tail = "\nVALUE LISTS:\n  cosmostrix --list-charsets\n  cosmostrix --list-colors\n\nMESSAGE BOX:\n  --message-no-border, --mB\n      Draw filled box without border characters\n\nLIMITS / VALID RANGES:\n";
+    let tail = "\nVALUE LISTS:\n  cosmostrix --list-charsets\n  cosmostrix --list-colors\n\nMESSAGE BOX:\n  --message-no-border, -mB\n      Draw filled box without border characters\n\nLIMITS / VALID RANGES:\n";
     if color_enabled_stdout() {
         print!("{}", colorize_help_detail(tail));
     } else {

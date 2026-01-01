@@ -130,6 +130,7 @@ These flags match the current Rust implementation (`src/config.rs`).
  -l, --lingerms <LO,HI>       linger timing range in ms (default: 1,3000)
  -M, --shadingmode <NUM>      0=random, 1=distance-from-head (default: 0)
  -m, --message <TEXT>         overlay message
+     --message-no-border      draw message box without border (use with --message; shorthand: -mB)
      --maxdpc <NUM>           max droplets per column (min 1 max 3, default: 3)
      --noglitch               disable glitch
  -r, --rippct <PCT>           die-early percent (default: 33.33333)
