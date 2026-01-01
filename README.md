@@ -34,7 +34,9 @@ See `benchmark/README.md` for profiling artifacts and a reproducible benchmark s
 - A terminal that supports ANSI escape sequences, alternate screen, and raw mode
 - Best results with 256-color or truecolor terminals
 
-Cosmostrix is intended for Unix-like systems (Linux, BSD, macOS, and similar). It uses `crossterm`, so it can also be built on Windows in many setups, but Windows is not the primary target.
+Cosmostrix supports Unix-like systems (Linux, BSD, macOS, and similar) and Windows (7/10/11) via `crossterm`.
+
+On Unix, Cosmostrix uses OS signals for clean shutdown; on Windows it uses a Ctrl-C handler. For best results on Windows, use a modern terminal that supports ANSI/VT sequences.
 
 ## Quickstart
 
@@ -65,7 +67,10 @@ Run the built binary:
 
 ### From GitHub Releases
 
-Download the `.tar.xz` archive for your OS/arch from Releases, extract it, and place `cosmostrix` somewhere in your `PATH`.
+Download the package for your OS/arch from Releases, extract it, and place `cosmostrix` somewhere in your `PATH`.
+
+- **Unix-like (Linux/macOS)**: `.tar.xz`
+- **Windows**: `.zip`
 
 ### From source (recommended)
 

@@ -11,15 +11,20 @@ mod runtime;
 mod terminal;
 
 use std::env;
-use std::thread;
 use std::time::{Duration, Instant};
+
+#[cfg(unix)]
+use std::thread;
 
 use clap::builder::styling::{AnsiColor as ClapAnsiColor, Color as ClapColor};
 use clap::builder::styling::{Effects as ClapEffects, Style as ClapStyle};
 use clap::builder::Styles as ClapStyles;
 use clap::{CommandFactory, FromArgMatches};
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
+
+#[cfg(unix)]
 use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
+#[cfg(unix)]
 use signal_hook::iterator::Signals;
 
 use crate::charset::{build_chars, charset_from_str, parse_user_hex_chars};
@@ -185,13 +190,26 @@ fn main() -> std::io::Result<()> {
         eprintln!("{}", info);
     }));
 
-    if let Ok(mut signals) = Signals::new([SIGINT, SIGTERM, SIGHUP]) {
-        thread::spawn(move || {
-            if let Some(sig) = signals.forever().next() {
-                restore_terminal_best_effort();
-                std::process::exit(128 + sig);
-            }
-        });
+    #[cfg(unix)]
+    {
+        if let Ok(mut signals) = Signals::new([SIGINT, SIGTERM, SIGHUP]) {
+            thread::spawn(move || {
+                if let Some(sig) = signals.forever().next() {
+                    restore_terminal_best_effort();
+                    std::process::exit(128 + sig);
+                }
+            });
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        if let Err(e) = ctrlc::set_handler(|| {
+            restore_terminal_best_effort();
+            std::process::exit(130);
+        }) {
+            eprintln!("failed to install Ctrl-C handler: {}", e);
+        }
     }
 
     let mut cmd = Args::command();

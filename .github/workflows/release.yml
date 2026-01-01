@@ -27,6 +27,12 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             platform: darwin-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows-amd64
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            platform: windows-arm64
 
     steps:
       - name: Checkout
@@ -59,6 +65,18 @@ jobs:
 
       - name: Add Rust target
         run: rustup target add ${{ matrix.target }}
+
+      - name: Setup MSVC dev cmd (windows-amd64)
+        if: matrix.target == 'x86_64-pc-windows-msvc'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Setup MSVC dev cmd (windows-arm64)
+        if: matrix.target == 'aarch64-pc-windows-msvc'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64_arm64
 
       - name: Install Linux arm64 linker
         if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -101,6 +119,7 @@ jobs:
         run: cargo clippy --locked --all-targets --all-features -- -D warnings
 
       - name: Package (.tar.xz)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euo pipefail
@@ -128,11 +147,44 @@ jobs:
             fi
           )
 
+      - name: Package (.zip)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $TAG = "${{ steps.ver.outputs.tag }}"
+          $VERSION = "${{ steps.ver.outputs.version }}"
+          $TARGET = "${{ matrix.target }}"
+          $PLATFORM = "${{ matrix.platform }}"
+
+          $outDir = "dist/cosmostrix-$VERSION-$TARGET"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+
+          Copy-Item -Force "target/$TARGET/release/cosmostrix.exe" "$outDir/"
+          Copy-Item -Force "README.md" "$outDir/"
+          Copy-Item -Force "LICENSE" "$outDir/"
+
+          $zip = "cosmostrix-bin-$TAG-$PLATFORM.zip"
+          if (Test-Path "dist/$zip") { Remove-Item -Force "dist/$zip" }
+          Compress-Archive -Force -Path "$outDir/*" -DestinationPath "dist/$zip"
+
+          $hash = (Get-FileHash -Algorithm SHA512 "dist/$zip").Hash.ToLower()
+          "$hash  $zip" | Out-File -Encoding ascii "dist/$zip.sha512"
+
       - name: Upload artifact
+        if: runner.os != 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: packages-${{ matrix.platform }}
           path: dist/*.tar.xz*
+          if-no-files-found: error
+
+      - name: Upload artifact
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.platform }}
+          path: dist/*.zip*
           if-no-files-found: error
 
   build_android:
@@ -368,6 +420,10 @@ jobs:
             echo '# Quick install (macOS Apple Silicon)'
             echo "curl -L https://github.com/${REPO}/releases/download/${TAG}/cosmostrix-bin-${TAG}-darwin-arm64.tar.xz | tar -xJ"
             echo
+            echo '# Quick install (Windows x86_64) (PowerShell)'
+            echo "curl.exe -L -o cosmostrix.zip https://github.com/${REPO}/releases/download/${TAG}/cosmostrix-bin-${TAG}-windows-amd64.zip"
+            echo 'Expand-Archive -Force cosmostrix.zip .'
+            echo
             echo '# Or download your platform-specific package from the assets below'
             echo '```'
             echo
@@ -395,3 +451,5 @@ jobs:
           files: |
             dist/**/**/*.tar.xz
             dist/**/**/*.tar.xz.sha512
+            dist/**/**/*.zip
+            dist/**/**/*.zip.sha512

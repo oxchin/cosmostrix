@@ -68,6 +68,21 @@ jobs:
       - name: Build (debug)
         run: cargo build --profile dev --locked
 
+  windows_build:
+    name: Nova Robot - Build (windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.81.0
+
+      - name: Build (debug)
+        run: cargo build --profile dev --locked
+
   fmt_clippy:
     name: Nova Robot - Format + Clippy
     runs-on: ubuntu-latest
