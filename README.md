@@ -2,6 +2,8 @@
 
 Cosmostrix is a cosmic take on the classic Matrix rain for the terminal.
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/oxyzenQ/cosmostrix)
+
 ## Demo
 
 Watch the demo on YouTube:
