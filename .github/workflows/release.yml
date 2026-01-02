@@ -284,7 +284,8 @@ jobs:
               throw "Expected embedded build id '$build' in binary"
             }
           } else {
-            $out = & $bin -i
+            $outLines = & $bin -i
+            $out = $outLines -join "`n"
             $out
             if ($out -notmatch [regex]::Escape("build: $build")) {
               throw "Expected build id 'build: $build' in cosmostrix -i output"

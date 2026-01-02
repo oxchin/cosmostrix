@@ -6,6 +6,7 @@ rust-version = "1.81"
 authors = ["rezk_nightky"]
 description = "A cosmic take on the classic Matrix rain for the terminal"
 license = "MIT"
+build = "build.rs"
 
 [dependencies]
 clap = { version = "4.5.23", features = ["derive"] }
