@@ -17,22 +17,102 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            platform: linux-amd64
+            platform: linux-x86_64-v1
+            profile: pro-linux-v1
+            rustflags: "-C target-cpu=x86-64"
+            build: linux-x86_64-v1
+            checks: true
           - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform: linux-x86_64-v2
+            profile: pro-linux-v2
+            rustflags: "-C target-cpu=x86-64-v2"
+            build: linux-x86_64-v2
+            checks: false
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform: linux-x86_64-v3
+            profile: pro-linux-v3
+            rustflags: "-C target-cpu=x86-64-v3"
+            build: linux-x86_64-v3
+            checks: false
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform: linux-x86_64-v4
+            profile: pro-linux-v4
+            rustflags: "-C target-cpu=x86-64-v4"
+            build: linux-x86_64-v4
+            checks: false
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform: linux-x86_64-native
+            profile: pro-linux-native
+            rustflags: "-C target-cpu=native"
+            build: linux-x86_64-native
+            checks: false
+          - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-            platform: linux-arm64
+            platform: linux-aarch64-native
+            profile: pro
+            rustflags: "-C target-cpu=native"
+            build: linux-aarch64-native
+            checks: false
           - os: macos-15-intel
             target: x86_64-apple-darwin
-            platform: darwin-amd64
+            platform: darwin-x86_64-native
+            profile: pro-macos-intel-native
+            rustflags: "-C target-cpu=native"
+            build: darwin-x86_64-native
+            checks: false
           - os: macos-latest
             target: aarch64-apple-darwin
-            platform: darwin-arm64
+            platform: darwin-aarch64-native
+            profile: pro-macos-arm64-native
+            rustflags: "-C target-cpu=native"
+            build: darwin-aarch64-native
+            checks: false
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            platform: windows-amd64
+            platform: windows-x86_64-v1
+            profile: pro-win-v1
+            rustflags: "-C target-cpu=x86-64"
+            build: windows-x86_64-v1
+            checks: false
           - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows-x86_64-v2
+            profile: pro-win-v2
+            rustflags: "-C target-cpu=x86-64-v2"
+            build: windows-x86_64-v2
+            checks: false
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows-x86_64-v3
+            profile: pro-win-v3
+            rustflags: "-C target-cpu=x86-64-v3"
+            build: windows-x86_64-v3
+            checks: false
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows-x86_64-v4
+            profile: pro-win-v4
+            rustflags: "-C target-cpu=x86-64-v4"
+            build: windows-x86_64-v4
+            checks: false
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows-x86_64-native
+            profile: pro-win-native
+            rustflags: "-C target-cpu=native"
+            build: windows-x86_64-native
+            checks: false
+          - os: windows-11-arm
             target: aarch64-pc-windows-msvc
-            platform: windows-arm64
+            platform: windows-aarch64-native
+            profile: pro
+            rustflags: "-C target-cpu=native"
+            build: windows-aarch64-native
+            checks: false
 
     steps:
       - name: Checkout
@@ -65,6 +145,11 @@ jobs:
           toolchain: 1.81.0
           components: rustfmt, clippy
 
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2.8.2
+        with:
+          cache-on-failure: true
+
       - name: Add Rust target
         run: rustup target add ${{ matrix.target }}
 
@@ -75,21 +160,23 @@ jobs:
           arch: x64
 
       - name: Setup MSVC dev cmd (windows-arm64)
-        if: matrix.target == 'aarch64-pc-windows-msvc'
+        if: matrix.target == 'aarch64-pc-windows-msvc' && runner.arch != 'ARM64'
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: amd64_arm64
 
       - name: Install Linux arm64 linker
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        if: matrix.target == 'aarch64-unknown-linux-gnu' && runner.arch != 'ARM64'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
       - name: Install stable toolchain
+        if: matrix.checks
         run: rustup toolchain install stable
 
       - name: Audit dependencies
+        if: matrix.checks
         shell: bash
         run: |
           set -euo pipefail
@@ -97,30 +184,89 @@ jobs:
           cargo +stable audit
 
       - name: Tests
+        if: matrix.checks
         run: cargo test --all --locked
 
       - name: Build (debug)
+        if: matrix.checks
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         run: cargo build --profile dev --locked --target ${{ matrix.target }}
 
-      - name: Build (release)
+      - name: Build (release) (aarch64 cross)
+        if: matrix.target == 'aarch64-unknown-linux-gnu' && runner.arch != 'ARM64'
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-        run: cargo build --profile release --locked --target ${{ matrix.target }}
+          COSMOSTRIX_BUILD: ${{ matrix.build }}
+          RUSTFLAGS: ${{ matrix.rustflags }}
+        run: cargo build --profile ${{ matrix.profile }} --locked --target ${{ matrix.target }}
+
+      - name: Build (release)
+        if: matrix.target != 'aarch64-unknown-linux-gnu' || runner.arch == 'ARM64'
+        env:
+          COSMOSTRIX_BUILD: ${{ matrix.build }}
+          RUSTFLAGS: ${{ matrix.rustflags }}
+        run: cargo build --profile ${{ matrix.profile }} --locked --target ${{ matrix.target }}
+
+      - name: Verify build id
+        if: runner.os != 'Windows' && (matrix.target != 'aarch64-unknown-linux-gnu' || runner.arch == 'ARM64')
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN="target/${{ matrix.target }}/${{ matrix.profile }}/cosmostrix"
+          BUILD_ID="${{ matrix.build }}"
+
+          if [[ "${BUILD_ID}" == *-v4 ]]; then
+            echo "Skipping execution for ${BUILD_ID} (may require AVX-512); verifying embedded build id in binary"
+            if command -v strings >/dev/null 2>&1; then
+              strings "${BIN}" | grep -F "${BUILD_ID}"
+            else
+              grep -aF "${BUILD_ID}" "${BIN}"
+            fi
+          else
+            OUT="$(${BIN} -i)"
+            echo "${OUT}"
+            echo "${OUT}" | grep -F "build: ${BUILD_ID}"
+          fi
+
+      - name: Verify build id
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $bin = "target/${{ matrix.target }}/${{ matrix.profile }}/cosmostrix.exe"
+          $build = "${{ matrix.build }}"
+
+          if ($build.EndsWith("-v4")) {
+            Write-Host "Skipping execution for $build (may require AVX-512); verifying embedded build id in binary"
+            $bytes = [System.IO.File]::ReadAllBytes($bin)
+            $text = [System.Text.Encoding]::ASCII.GetString($bytes)
+            if (-not $text.Contains($build)) {
+              throw "Expected embedded build id '$build' in binary"
+            }
+          } else {
+            $out = & $bin -i
+            $out
+            if ($out -notmatch [regex]::Escape("build: $build")) {
+              throw "Expected build id 'build: $build' in cosmostrix -i output"
+            }
+          }
 
       - name: Format check
+        if: matrix.checks
         run: cargo fmt --all -- --check
 
       - name: Dependency policy (cargo-deny)
+        if: matrix.checks
         run: |
           cargo +stable install cargo-deny --locked
           cargo +stable deny check all
 
       - name: Clippy
+        if: matrix.checks
         run: cargo clippy --locked --all-targets --all-features -- -D warnings
 
-      - name: Package (.tar.xz)
+      - name: Package (.tar.gz)
         if: runner.os != 'Windows'
         shell: bash
         run: |
@@ -131,14 +277,16 @@ jobs:
           TARGET="${{ matrix.target }}"
           PLATFORM="${{ matrix.platform }}"
 
-          OUTDIR="dist/cosmostrix-${VERSION}-${TARGET}"
+          PROFILE="${{ matrix.profile }}"
+
+          OUTDIR="dist/cosmostrix-${VERSION}-${PLATFORM}"
           mkdir -p "$OUTDIR"
-          cp -f "target/${TARGET}/release/cosmostrix" "$OUTDIR/"
+          cp -f "target/${TARGET}/${PROFILE}/cosmostrix" "$OUTDIR/"
           cp -f "README.md" "$OUTDIR/"
           cp -f "LICENSE" "$OUTDIR/"
 
-          TARBALL="cosmostrix-bin-${TAG}-${PLATFORM}.tar.xz"
-          XZ_OPT=-9e tar -cJf "dist/${TARBALL}" -C dist "cosmostrix-${VERSION}-${TARGET}"
+          TARBALL="cosmostrix-bin-${TAG}-${PLATFORM}.tar.gz"
+          tar -czf "dist/${TARBALL}" -C dist "cosmostrix-${VERSION}-${PLATFORM}"
 
           (
             cd dist
@@ -159,10 +307,12 @@ jobs:
           $TARGET = "${{ matrix.target }}"
           $PLATFORM = "${{ matrix.platform }}"
 
-          $outDir = "dist/cosmostrix-$VERSION-$TARGET"
+          $PROFILE = "${{ matrix.profile }}"
+
+          $outDir = "dist/cosmostrix-$VERSION-$PLATFORM"
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-          Copy-Item -Force "target/$TARGET/release/cosmostrix.exe" "$outDir/"
+          Copy-Item -Force "target/$TARGET/$PROFILE/cosmostrix.exe" "$outDir/"
           Copy-Item -Force "README.md" "$outDir/"
           Copy-Item -Force "LICENSE" "$outDir/"
 
@@ -178,7 +328,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: packages-${{ matrix.platform }}
-          path: dist/*.tar.xz*
+          path: dist/*.tar.gz*
           if-no-files-found: error
 
       - name: Upload artifact
@@ -190,7 +340,7 @@ jobs:
           if-no-files-found: error
 
   build_android:
-    name: T-800 - Build packages (android-arm64)
+    name: T-800 - Build packages (android-aarch64-native)
     runs-on: ubuntu-latest
 
     steps:
@@ -221,6 +371,11 @@ jobs:
         with:
           toolchain: 1.81.0
 
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2.8.2
+        with:
+          cache-on-failure: true
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -240,6 +395,7 @@ jobs:
         shell: bash
         env:
           ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          COSMOSTRIX_BUILD: android-aarch64-native
         run: |
           set -euo pipefail
           TARGET="aarch64-linux-android"
@@ -248,25 +404,27 @@ jobs:
           export CC_aarch64_linux_android="${TOOLCHAIN}/bin/aarch64-linux-android21-clang"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="${CC_aarch64_linux_android}"
 
-          cargo build --profile release --locked --target "${TARGET}"
+          cargo build --profile pro-android-arm64 --locked --target "${TARGET}"
 
-      - name: Package (.tar.xz)
+      - name: Package (.tar.gz)
         shell: bash
         run: |
           set -euo pipefail
           TAG="${{ steps.ver.outputs.tag }}"
           VERSION="${{ steps.ver.outputs.version }}"
           TARGET="aarch64-linux-android"
-          PLATFORM="android-arm64"
+          PLATFORM="android-aarch64-native"
 
-          OUTDIR="dist/cosmostrix-${VERSION}-${TARGET}"
+          PROFILE="pro-android-arm64"
+
+          OUTDIR="dist/cosmostrix-${VERSION}-${PLATFORM}"
           mkdir -p "$OUTDIR"
-          cp -f "target/${TARGET}/release/cosmostrix" "$OUTDIR/"
+          cp -f "target/${TARGET}/${PROFILE}/cosmostrix" "$OUTDIR/"
           cp -f "README.md" "$OUTDIR/"
           cp -f "LICENSE" "$OUTDIR/"
 
-          TARBALL="cosmostrix-bin-${TAG}-${PLATFORM}.tar.xz"
-          XZ_OPT=-9e tar -cJf "dist/${TARBALL}" -C dist "cosmostrix-${VERSION}-${TARGET}"
+          TARBALL="cosmostrix-bin-${TAG}-${PLATFORM}.tar.gz"
+          tar -czf "dist/${TARBALL}" -C dist "cosmostrix-${VERSION}-${PLATFORM}"
 
           (
             cd dist
@@ -280,8 +438,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: packages-android-arm64
-          path: dist/*.tar.xz*
+          name: packages-android-aarch64-native
+          path: dist/*.tar.gz*
           if-no-files-found: error
 
   publish_release:
@@ -419,13 +577,13 @@ jobs:
             echo
             echo '```bash'
             echo '# Quick install (Linux x86_64)'
-            echo "curl -L https://github.com/${REPO}/releases/download/${TAG}/cosmostrix-bin-${TAG}-linux-amd64.tar.xz | tar -xJ"
+            echo "curl -L https://github.com/${REPO}/releases/download/${TAG}/cosmostrix-bin-${TAG}-linux-x86_64-v1.tar.gz | tar -xzf -"
             echo
             echo '# Quick install (macOS Apple Silicon)'
-            echo "curl -L https://github.com/${REPO}/releases/download/${TAG}/cosmostrix-bin-${TAG}-darwin-arm64.tar.xz | tar -xJ"
+            echo "curl -L https://github.com/${REPO}/releases/download/${TAG}/cosmostrix-bin-${TAG}-darwin-aarch64-native.tar.gz | tar -xzf -"
             echo
             echo '# Quick install (Windows x86_64) (PowerShell)'
-            echo "curl.exe -L -o cosmostrix.zip https://github.com/${REPO}/releases/download/${TAG}/cosmostrix-bin-${TAG}-windows-amd64.zip"
+            echo "curl.exe -L -o cosmostrix.zip https://github.com/${REPO}/releases/download/${TAG}/cosmostrix-bin-${TAG}-windows-x86_64-v1.zip"
             echo 'Expand-Archive -Force cosmostrix.zip .'
             echo
             echo '# Or download your platform-specific package from the assets below'
@@ -453,10 +611,10 @@ jobs:
           make_latest: ${{ steps.ver.outputs.prerelease != 'true' }}
           body_path: release-notes.md
           files: |
-            dist/**/**/*.tar.xz
-            dist/**/**/*.tar.xz.sha512
-            dist/**/**/*.zip
-            dist/**/**/*.zip.sha512
+            dist/**/*.tar.gz
+            dist/**/*.tar.gz.sha512
+            dist/**/*.zip
+            dist/**/*.zip.sha512
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

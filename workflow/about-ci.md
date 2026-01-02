@@ -43,11 +43,13 @@ Workflow files live under:
 
 **What it builds**
 
-- Linux amd64 (runner host build)
-- Linux arm64 (cross-compiled): `aarch64-unknown-linux-gnu`
-- macOS amd64 (runner host build)
-- macOS arm64 (runner host build)
-- Android arm64 (cross-compiled): `aarch64-linux-android`
+- Linux x86_64 (v1/v2/v3/v4/native) (runner host build)
+- Linux aarch64 native (runner host build)
+- macOS x86_64 native (runner host build)
+- macOS aarch64 native (runner host build)
+- Windows x86_64 (v1/v2/v3/v4/native) (runner host build)
+- Windows aarch64 native (runner host build)
+- Android aarch64 native (cross-compiled): `aarch64-linux-android`
 
 **Build steps (per platform job)**
 
@@ -64,18 +66,30 @@ Workflow files live under:
 
 Each build produces:
 
-- `cosmostrix-bin-<tag>-<platform>.tar.xz`
-- `cosmostrix-bin-<tag>-<platform>.tar.xz.sha512`
+- `cosmostrix-bin-<tag>-<platform>.tar.gz`
+- `cosmostrix-bin-<tag>-<platform>.tar.gz.sha512`
+- `cosmostrix-bin-<tag>-<platform>.zip`
+- `cosmostrix-bin-<tag>-<platform>.zip.sha512`
 
 Where `<tag>` is a git tag like `v1.0.0`.
 
 Where `<platform>` is one of:
 
-- `linux-amd64`
-- `linux-arm64`
-- `darwin-amd64`
-- `darwin-arm64`
-- `android-arm64`
+- `linux-x86_64-v1`
+- `linux-x86_64-v2`
+- `linux-x86_64-v3`
+- `linux-x86_64-v4`
+- `linux-x86_64-native`
+- `linux-aarch64-native`
+- `darwin-x86_64-native`
+- `darwin-aarch64-native`
+- `windows-x86_64-v1`
+- `windows-x86_64-v2`
+- `windows-x86_64-v3`
+- `windows-x86_64-v4`
+- `windows-x86_64-native`
+- `windows-aarch64-native`
+- `android-aarch64-native`
 
 The archive contains:
 
@@ -94,10 +108,10 @@ Verification examples:
 
 ```bash
 # Linux
-sha512sum -c cosmostrix-bin-v1.0.0-linux-amd64.tar.xz.sha512
+sha512sum -c cosmostrix-bin-v1.0.0-linux-x86_64-v1.tar.gz.sha512
 
 # macOS
-shasum -a 512 -c cosmostrix-bin-v1.0.0-darwin-arm64.tar.xz.sha512
+shasum -a 512 -c cosmostrix-bin-v1.0.0-darwin-aarch64-native.tar.gz.sha512
 ```
 
 **Release publishing**
@@ -106,7 +120,7 @@ The `publish_release` job:
 
 - downloads all build artifacts
 - generates release notes from git history (since previous `v*` tag)
-- creates a GitHub Release and uploads all `*.tar.xz` and `*.tar.xz.sha512` files
+- creates a GitHub Release and uploads all `*.tar.gz`, `*.tar.gz.sha512`, `*.zip`, and `*.zip.sha512` files
 
 ## Typical release flow
 

@@ -51,6 +51,32 @@ const HELP_TEMPLATE_COLOR: &str = "\
 
 {all-args}{after-help}";
 
+fn build_info() -> String {
+    if let Some(v) = option_env!("COSMOSTRIX_BUILD") {
+        return v.to_string();
+    }
+
+    let os = match std::env::consts::OS {
+        "macos" => "darwin",
+        other => other,
+    };
+    let arch = std::env::consts::ARCH;
+
+    let variant = if cfg!(all(target_arch = "x86_64", target_feature = "avx512f")) {
+        "v4"
+    } else if cfg!(all(target_arch = "x86_64", target_feature = "avx2")) {
+        "v3"
+    } else if cfg!(all(target_arch = "x86_64", target_feature = "sse4.2")) {
+        "v2"
+    } else if cfg!(target_arch = "x86_64") {
+        "v1"
+    } else {
+        "native"
+    };
+
+    format!("{os}-{arch}-{variant}")
+}
+
 fn clap_styles() -> ClapStyles {
     ClapStyles::styled()
         .header(
@@ -287,6 +313,8 @@ fn main() -> std::io::Result<()> {
 
     if args.info {
         println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+        println!("build: {}", build_info());
+        println!();
         println!("author: {}", env!("CARGO_PKG_AUTHORS"));
         println!("{}", env!("CARGO_PKG_DESCRIPTION"));
         return Ok(());

@@ -83,6 +83,229 @@ jobs:
       - name: Build (debug)
         run: cargo build --profile dev --locked
 
+  macos_build:
+    name: T-800 - Build (macos native)
+    runs-on: ${{ matrix.os }}
+    needs: build_test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            profile: pro-macos-intel-native
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            profile: pro-macos-arm64-native
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.81.0
+
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2.8.2
+        with:
+          cache-on-failure: true
+
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build
+        env:
+          RUSTFLAGS: "-C target-cpu=native"
+        run: cargo build --profile ${{ matrix.profile }} --locked --target ${{ matrix.target }}
+
+  android_build:
+    name: T-800 - Build (android-arm64)
+    runs-on: ubuntu-latest
+    needs: build_test
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.81.0
+
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2.8.2
+        with:
+          cache-on-failure: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android NDK
+        id: ndk
+        uses: nttld/setup-ndk@v1.5.0
+        with:
+          ndk-version: r26d
+
+      - name: Add Rust target
+        run: rustup target add aarch64-linux-android
+
+      - name: Build (android-arm64)
+        shell: bash
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          set -euo pipefail
+          TARGET="aarch64-linux-android"
+
+          TOOLCHAIN="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64"
+          export CC_aarch64_linux_android="${TOOLCHAIN}/bin/aarch64-linux-android21-clang"
+          export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="${CC_aarch64_linux_android}"
+
+          cargo build --profile pro-android-arm64 --locked --target "${TARGET}"
+
+  linux_arm64_build:
+    name: T-800 - Build (linux arm64)
+    runs-on: ubuntu-latest
+    needs: build_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.81.0
+
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2.8.2
+        with:
+          cache-on-failure: true
+
+      - name: Install Linux arm64 linker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Add Rust target
+        run: rustup target add aarch64-unknown-linux-gnu
+
+      - name: Build
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        run: cargo build --profile pro --locked --target aarch64-unknown-linux-gnu
+
+  windows_arm64_build:
+    name: T-800 - Build (windows arm64)
+    runs-on: windows-latest
+    needs: windows_build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.81.0
+
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2.8.2
+        with:
+          cache-on-failure: true
+
+      - name: Add Rust target
+        run: rustup target add aarch64-pc-windows-msvc
+
+      - name: Setup MSVC dev cmd
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64_arm64
+
+      - name: Build
+        run: cargo build --profile pro --locked --target aarch64-pc-windows-msvc
+
+  linux_cpu_variants:
+    name: T-800 - Build (linux x86_64 variants)
+    runs-on: ubuntu-latest
+    needs: build_test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: pro-linux-v1
+            rustflags: "-C target-cpu=x86-64"
+          - profile: pro-linux-v2
+            rustflags: "-C target-cpu=x86-64-v2"
+          - profile: pro-linux-v3
+            rustflags: "-C target-cpu=x86-64-v3"
+          - profile: pro-linux-v4
+            rustflags: "-C target-cpu=x86-64-v4"
+          - profile: pro-linux-native
+            rustflags: "-C target-cpu=native"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.81.0
+
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2.8.2
+        with:
+          cache-on-failure: true
+
+      - name: Build
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
+        run: cargo build --profile ${{ matrix.profile }} --locked --target x86_64-unknown-linux-gnu
+
+  windows_cpu_variants:
+    name: T-800 - Build (windows x86_64 variants)
+    runs-on: windows-latest
+    needs: windows_build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: pro-win-v1
+            rustflags: "-C target-cpu=x86-64"
+          - profile: pro-win-v2
+            rustflags: "-C target-cpu=x86-64-v2"
+          - profile: pro-win-v3
+            rustflags: "-C target-cpu=x86-64-v3"
+          - profile: pro-win-v4
+            rustflags: "-C target-cpu=x86-64-v4"
+          - profile: pro-win-native
+            rustflags: "-C target-cpu=native"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.81.0
+
+      - name: Setup cache
+        uses: Swatinem/rust-cache@v2.8.2
+        with:
+          cache-on-failure: true
+
+      - name: Setup MSVC dev cmd
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
+        run: cargo build --profile ${{ matrix.profile }} --locked --target x86_64-pc-windows-msvc
+
   windows_build:
     name: T-800 - Build (windows)
     runs-on: windows-latest

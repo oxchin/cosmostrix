@@ -11,3 +11,4 @@ guide-optimize*
 
 # Benchmark artifacts
 benchmark/perf.data*
+dist

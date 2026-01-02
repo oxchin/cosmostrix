@@ -1,6 +1,6 @@
 # Cosmostrix
 
-Cosmostrix is a terminal "Matrix rain" visualizer written in Rust.
+Cosmostrix is a cosmic take on the classic Matrix rain for the terminal.
 
 It is a clean-room Rust migration of an older ncurses-based terminal project.
 
@@ -65,26 +65,121 @@ Run the built binary:
 
 ## Installation
 
-### From GitHub Releases
+### From GitHub Releases (prebuilt binaries)
 
-Download the package for your OS/arch from Releases, extract it, and place `cosmostrix` somewhere in your `PATH`.
+Download the package for your OS/arch from Releases, verify the checksum, extract it, and place `cosmostrix` somewhere in your `PATH`.
 
-- **Unix-like (Linux/macOS)**: `.tar.xz`
-- **Windows**: `.zip`
+ - **Linux/macOS/Android**: `.tar.gz`
+ - **Windows**: `.zip`
 
-### From source (recommended)
+ Pick `PLATFORM` based on your OS/CPU:
 
-```bash
-cargo install --path .
-cosmostrix --help
-```
+ - Linux x86_64: `linux-x86_64-v1` (most compatible), `linux-x86_64-v2`, `linux-x86_64-v3`, `linux-x86_64-v4`
+ - macOS: `darwin-x86_64-native` (Intel), `darwin-aarch64-native` (Apple Silicon)
+ - Windows: `windows-x86_64-v1`/`v2`/`v3`/`v4` (x86_64), `windows-aarch64-native` (ARM64)
+ - Android (Termux): `android-aarch64-native`
 
-### Manual install (Linux example)
+ You can confirm what you downloaded/installed by running `cosmostrix -i` (it prints a `build:` line).
 
-```bash
-cargo build --release
-install -Dm755 ./target/release/cosmostrix ~/.local/bin/cosmostrix
-```
+ #### Linux (example)
+
+ ```bash
+ REPO="oxyzenQ/cosmostrix"
+ TAG="v1.0.0"
+ PLATFORM="linux-x86_64-v3"
+ ARCHIVE="cosmostrix-bin-${TAG}-${PLATFORM}.tar.gz"
+ VERSION="${TAG#v}"
+ BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
+
+ curl -LO "${BASE_URL}/${ARCHIVE}"
+ curl -LO "${BASE_URL}/${ARCHIVE}.sha512"
+ sha512sum -c "${ARCHIVE}.sha512"
+ tar -xzf "${ARCHIVE}"
+ "./cosmostrix-${VERSION}-${PLATFORM}/cosmostrix" -i
+
+ # optional: install to PATH
+ install -Dm755 "./cosmostrix-${VERSION}-${PLATFORM}/cosmostrix" ~/.local/bin/cosmostrix
+ ```
+
+ #### macOS (example)
+
+ ```bash
+ REPO="oxyzenQ/cosmostrix"
+ TAG="v1.0.0"
+ PLATFORM="darwin-aarch64-native"
+ ARCHIVE="cosmostrix-bin-${TAG}-${PLATFORM}.tar.gz"
+ VERSION="${TAG#v}"
+ BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
+
+ curl -LO "${BASE_URL}/${ARCHIVE}"
+ curl -LO "${BASE_URL}/${ARCHIVE}.sha512"
+ shasum -a 512 -c "${ARCHIVE}.sha512"
+ tar -xzf "${ARCHIVE}"
+ "./cosmostrix-${VERSION}-${PLATFORM}/cosmostrix" -i
+ ```
+
+ #### Android (Termux) (example)
+
+ ```bash
+ pkg install -y coreutils tar curl
+ REPO="oxyzenQ/cosmostrix"
+ TAG="v1.0.0"
+ PLATFORM="android-aarch64-native"
+ ARCHIVE="cosmostrix-bin-${TAG}-${PLATFORM}.tar.gz"
+ VERSION="${TAG#v}"
+ BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
+
+ curl -LO "${BASE_URL}/${ARCHIVE}"
+ curl -LO "${BASE_URL}/${ARCHIVE}.sha512"
+ sha512sum -c "${ARCHIVE}.sha512"
+ tar -xzf "${ARCHIVE}"
+ chmod +x "./cosmostrix-${VERSION}-${PLATFORM}/cosmostrix"
+ "./cosmostrix-${VERSION}-${PLATFORM}/cosmostrix" -i
+
+ # optional: install to PATH (Termux)
+ install -m755 "./cosmostrix-${VERSION}-${PLATFORM}/cosmostrix" "$PREFIX/bin/cosmostrix"
+ ```
+
+ #### Windows (PowerShell) (example)
+
+ ```powershell
+ $repo = "oxyzenQ/cosmostrix"
+ $tag = "v1.0.0"
+ $platform = "windows-x86_64-v1"
+ $zip = "cosmostrix-bin-$tag-$platform.zip"
+ $version = $tag.TrimStart('v')
+ $base = "https://github.com/$repo/releases/download/$tag"
+
+ Invoke-WebRequest -Uri "$base/$zip" -OutFile $zip
+ Invoke-WebRequest -Uri "$base/$zip.sha512" -OutFile "$zip.sha512"
+
+ $expected = (Get-Content "$zip.sha512").Split()[0]
+ $actual = (Get-FileHash -Algorithm SHA512 $zip).Hash.ToLower()
+ if ($actual -ne $expected) { throw "SHA512 mismatch" }
+
+ Expand-Archive -Force $zip .
+ .\cosmostrix-$version-$platform\cosmostrix.exe -i
+ ```
+
+ ### From source (recommended)
+
+ ```bash
+ git clone https://github.com/oxyzenQ/cosmostrix.git
+ cd cosmostrix
+
+ cargo install --path .
+ cosmostrix -i
+ ```
+
+ #### CPU-specific optimized builds (optional)
+
+ Use the cargo aliases in `.cargo/config.toml` to build the same variants as GitHub Releases (and to embed the correct `build:` id shown by `cosmostrix -i`).
+
+ ```bash
+ # Linux x86_64 example
+ cargo pro-linux-v3
+ ./target/x86_64-unknown-linux-gnu/pro-linux-v3/cosmostrix -i
+ ```
 
 ## Usage
 
@@ -119,7 +214,7 @@ cosmostrix --chars 30,39,41,5A
 
 ## CLI options
 
-These flags match the current Rust implementation (`src/config.rs`).
+These flags at (`cosmostrix -h`).
 
 ```text
  -a, --async                  enable async column speeds
@@ -129,7 +224,7 @@ These flags match the current Rust implementation (`src/config.rs`).
  -d, --density <NUM>          droplet density (default: 1.0)
  -F, --fullwidth              use two columns per character
  -f, --fps <NUM>              target FPS (default: 60)
-     --duration <SECONDS>      exit after N seconds (useful for benchmarks)
+     --duration <SECONDS>     exit after N seconds (useful for benchmarks)
  -g, --glitchms <LO,HI>       glitch timing range in ms (default: 300,400)
  -G, --glitchpct <PCT>        glitch chance percent (default: 10)
  -l, --lingerms <LO,HI>       linger timing range in ms (default: 1,3000)
@@ -145,7 +240,7 @@ These flags match the current Rust implementation (`src/config.rs`).
      --charset <NAME>         character set (default: binary)
      --chars <HEX...>         custom unicode hex ranges (pairs)
      --colormode <MODE>       force color mode (0, 8, 24)
-     --check-bitcolor          print detected terminal color capability and exit
+     --check-bitcolor         print detected terminal color capability and exit
      --info                   print version info and exit
 ```
 

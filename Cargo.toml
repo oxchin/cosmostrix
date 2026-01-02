@@ -4,7 +4,7 @@ version = "1.0.1-alpha.2"
 edition = "2021"
 rust-version = "1.81"
 authors = ["rezk_nightky"]
-description = "Matrix rain effect for the terminal"
+description = "A cosmic take on the classic Matrix rain for the terminal"
 license = "MIT"
 
 [dependencies]
@@ -31,7 +31,7 @@ debug = false
 strip = true
 lto = "fat"
 codegen-units = 1
-panic = "unwind"
+panic = "abort"
 overflow-checks = false
 
 [profile.pro]
@@ -41,8 +41,56 @@ debug = false
 strip = true
 lto = "fat"
 codegen-units = 1
-panic = "unwind"
+panic = "abort"
 overflow-checks = false
+
+[profile.pro-linux-native]
+inherits = "pro"
+
+[profile.pro-linux-v1]
+inherits = "pro"
+
+[profile.pro-linux-v2]
+inherits = "pro"
+
+[profile.pro-linux-v3]
+inherits = "pro"
+
+[profile.pro-linux-v4]
+inherits = "pro"
+
+[profile.pro-macos-intel-native]
+inherits = "pro"
+
+[profile.pro-macos-arm64-native]
+inherits = "pro"
+
+[profile.pro-win-native]
+inherits = "pro"
+
+[profile.pro-win-v1]
+inherits = "pro"
+
+[profile.pro-win-v2]
+inherits = "pro"
+
+[profile.pro-win-v3]
+inherits = "pro"
+
+[profile.pro-win-v4]
+inherits = "pro"
+
+[profile.pro-android-arm64]
+inherits = "pro"
+
+[profile.pro-android-armv7]
+inherits = "pro"
+
+[profile.pro-android-x86_64]
+inherits = "pro"
+
+[profile.pro-android-x86]
+inherits = "pro"
 
 [profile.release-with-debug]
 inherits = "release"
@@ -53,3 +101,6 @@ strip = false
 inherits = "release"
 debug = true
 overflow-checks = false
+
+# Platform-specific optimizations
+# At ./cargo/config.toml
