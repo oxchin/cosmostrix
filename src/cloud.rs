@@ -343,6 +343,10 @@ impl Cloud {
         self.force_draw_everything = true;
     }
 
+    pub fn color_scheme(&self) -> ColorScheme {
+        self.color_scheme
+    }
+
     pub fn set_async(&mut self, on: bool) {
         self.async_mode = on;
         self.set_column_speeds();

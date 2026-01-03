@@ -223,7 +223,7 @@ jobs:
           else
             OUT="$(${BIN} -i)"
             echo "${OUT}"
-            echo "${OUT}" | grep -E "^(build|Build): ${BUILD_ID}$"
+            echo "${OUT}" | grep -E "^(build|Build): ${BUILD_ID}( \\([0-9a-f]+\\))?$"
           fi
 
       - name: Verify build id
@@ -245,7 +245,7 @@ jobs:
             $outLines = & $bin -i
             $out = $outLines -join "`n"
             $out
-            $pat = "(?m)^(build|Build): " + [regex]::Escape($build) + "$"
+            $pat = "(?m)^(build|Build): " + [regex]::Escape($build) + "( \\([0-9a-f]+\\))?$"
             if ($out -notmatch $pat) {
               throw "Expected build id '$build' in cosmostrix -i output"
             }
