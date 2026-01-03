@@ -26,19 +26,22 @@ fn infer_build_id() -> String {
     let arch = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_else(|_| "unknown".to_string());
     let features = std::env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
 
-    let variant = if arch == "x86_64" {
-        if features.contains("avx512f") {
-            "v4"
-        } else if features.contains("avx2") {
-            "v3"
-        } else if features.contains("sse4.2") || features.contains("sse4_2") {
-            "v2"
+    if arch == "x86_64" {
+        if os == "linux" {
+            let variant = if features.contains("avx512f") {
+                "v4"
+            } else if features.contains("avx2") {
+                "v3"
+            } else if features.contains("sse4.2") || features.contains("sse4_2") {
+                "v2"
+            } else {
+                "v1"
+            };
+            format!("{os}-{arch}-{variant}")
         } else {
-            "v1"
+            format!("{os}-{arch}")
         }
     } else {
-        "native"
-    };
-
-    format!("{os}-{arch}-{variant}")
+        format!("{os}-{arch}-native")
+    }
 }
