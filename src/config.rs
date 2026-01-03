@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use clap::Parser;
 
-pub const DEFAULT_PARAMS_USAGE: &str = "DEFAULT PARAMS USAGE:\n  cosmostrix --duration 0 --color-bg black --color green --charset binary --fps 60 --speed 8 --density 1 --maxdpc 3 --bold 1 --shadingmode 0 --glitchpct 10 --glitchms 300,400 --lingerms 1,3000 --shortpct 50 --rippct 33.33333";
+pub const DEFAULT_PARAMS_USAGE: &str = "DEFAULT PARAMS USAGE:\n  cosmostrix --duration 0 --color-bg black --color green --charset binary --fps 60 --speed 8 --density 1 --maxdpc 3 --bold 1 --shadingmode 1 --glitchpct 10 --glitchms 300,400 --lingerms 1,3000 --shortpct 50 --rippct 33.33333";
 
 pub fn color_enabled_stdout() -> bool {
     if std::env::var_os("NO_COLOR").is_some() {
@@ -226,9 +226,9 @@ pub struct Args {
     #[arg(
         short = 'M',
         long = "shadingmode",
-        default_value_t = 0,
+        default_value_t = 1,
         help_heading = "APPEARANCE",
-        help = "Shading mode (min 0 max 1): 0=random, 1=distance-from-head"
+        help = "Shading mode (min 0 max 1): 0=random, 1=distance-from-head (default)"
     )]
     pub shading_mode: u8,
 
