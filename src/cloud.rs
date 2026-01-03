@@ -113,11 +113,24 @@ impl DrawCtx<'_> {
         let mut color_idx = self.color_map.get(idx).copied().unwrap_or(0) as i32;
 
         if self.shading_distance {
-            let n = self.palette_colors.len().max(1) as f32;
-            let dist = (head_put_line.saturating_sub(line)) as f32;
-            let len = length.max(1) as f32;
-            let v = (n - 1.0) - (dist / len * (n - 1.0));
-            color_idx = v.round() as i32;
+            let last = self.palette_colors.len().saturating_sub(1) as u64;
+            let dist = head_put_line.saturating_sub(line) as u64;
+            let len = length.max(1) as u64;
+
+            let inv = (len.saturating_sub(dist)).min(len);
+            let inv2 = inv * inv;
+            let len2 = len * len;
+
+            let mut v = if len2 == 0 {
+                0
+            } else {
+                ((inv2 * last) + (len2 / 2)) / len2
+            };
+            if dist <= 1 {
+                v = (v + 1).min(last);
+            }
+
+            color_idx = v as i32;
         }
 
         if self.glitchy && self.glitch_map.get(idx).copied().unwrap_or(false) {
