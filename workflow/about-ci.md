@@ -127,6 +127,12 @@ git tag -a v1.0.1-stable.1 -m v1.0.1-stable.1
 
 # 4) Push the tag (this triggers the Release workflow)
 git push origin v1.0.1-stable.1
+
+# 5) if want to delete/repush
+git tag -d v1.0.1-stable.1
+git push origin :refs/tags/v1.0.1-stable.1
+git tag -a v1.0.1-stable.1 -m v1.0.1-stable.1
+git push origin v1.0.1-stable.1
 ```
 
 - The **Release** workflow will run on that tag.
