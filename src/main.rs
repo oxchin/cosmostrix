@@ -510,6 +510,91 @@ fn main() -> std::io::Result<()> {
     let density_auto = matches.value_source("density") == Some(ValueSource::DefaultValue);
     let base_density = require_f32_range("--density", args.density, 0.01, 5.0);
 
+    if let Some(bench_frames) = args.bench_frames {
+        if bench_frames == 0 {
+            eprintln!(
+                "failed to apply --bench-frames {} (must be > 0)",
+                bench_frames
+            );
+            std::process::exit(1);
+        }
+
+        let (w, h) = (
+            env::var("COSMOSTRIX_BENCH_COLS")
+                .ok()
+                .and_then(|v| v.parse::<u16>().ok())
+                .unwrap_or(120),
+            env::var("COSMOSTRIX_BENCH_LINES")
+                .ok()
+                .and_then(|v| v.parse::<u16>().ok())
+                .unwrap_or(40),
+        );
+
+        let density = effective_density(base_density, w, h, args.fullwidth, density_auto);
+
+        let mut cloud = Cloud::new(
+            color_mode,
+            args.fullwidth,
+            shading_mode,
+            bold_mode,
+            args.async_mode,
+            matches!(
+                args.color_bg,
+                ColorBg::DefaultBackground | ColorBg::Transparent
+            ),
+            color_scheme,
+        );
+
+        cloud.glitchy = !args.noglitch;
+        cloud.set_glitch_pct(glitch_pct / 100.0);
+        cloud.set_glitch_times(glitch_low, glitch_high);
+        cloud.set_linger_times(linger_low, linger_high);
+        cloud.short_pct = short_pct / 100.0;
+        cloud.die_early_pct = die_early_pct / 100.0;
+        cloud.set_max_droplets_per_column(max_dpc);
+        cloud.set_droplet_density(density);
+        cloud.set_chars_per_sec(speed);
+
+        cloud.init_chars(chars);
+        cloud.reset(w, h);
+
+        if let Some(msg) = &args.message {
+            cloud.set_message_border(!args.message_no_border);
+            cloud.set_message(msg);
+        }
+
+        let mut frame = Frame::new(w, h, cloud.palette.bg);
+
+        let target_period = Duration::from_secs_f64(1.0 / target_fps);
+        cloud.set_max_sim_delta(target_period);
+
+        let warmup_frames = (bench_frames / 10).clamp(10, 200);
+        let mut sim_now = Instant::now();
+
+        for _ in 0..warmup_frames {
+            sim_now += target_period;
+            cloud.rain_at(&mut frame, sim_now);
+            frame.clear_dirty();
+        }
+
+        let start = Instant::now();
+        for _ in 0..bench_frames {
+            sim_now += target_period;
+            cloud.rain_at(&mut frame, sim_now);
+            frame.clear_dirty();
+        }
+        let elapsed_s = start.elapsed().as_secs_f64().max(0.000_001);
+        let fps = (bench_frames as f64) / elapsed_s;
+
+        println!("BENCH:");
+        println!("  cols: {}", w);
+        println!("  lines: {}", h);
+        println!("  frames: {}", bench_frames);
+        println!("  elapsed_s: {:.6}", elapsed_s);
+        println!("  frames_per_s: {:.3}", fps);
+        return Ok(());
+    }
+
     let mut term = Terminal::new()?;
     let (w, h) = term.size()?;
 

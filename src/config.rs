@@ -197,6 +197,13 @@ pub struct Args {
     pub perf_stats: bool,
 
     #[arg(
+        long = "bench-frames",
+        help_heading = "PERFORMANCE",
+        help = "Run headless benchmark for N frames and exit"
+    )]
+    pub bench_frames: Option<u64>,
+
+    #[arg(
         short = 'g',
         long = "glitchms",
         default_value = "300,400",
@@ -466,6 +473,13 @@ pub fn print_help_detail() {
         print!("{}", block);
     }
 
+    let bench = "\nBENCHMARK:\n  --bench-frames <frames>\n      Run headless benchmark for N frames and exit.\n      Example: cosmostrix --fps 60 --bench-frames 200000\n";
+    if color_enabled_stdout() {
+        print!("{}", colorize_help_detail(bench));
+    } else {
+        print!("{}", bench);
+    }
+
     let tail = "\nVALUE LISTS:\n  cosmostrix --list-charsets\n  cosmostrix --list-colors\n\nMESSAGE BOX:\n  --message-no-border, -mB\n      Draw filled box without border characters\n\nLIMITS / VALID RANGES:\n";
     if color_enabled_stdout() {
         print!("{}", colorize_help_detail(tail));
@@ -474,6 +488,7 @@ pub fn print_help_detail() {
     }
     println!("  --duration <seconds>     min 0.1 max 86400 (<=0 disables)");
     println!("  --perf-stats             print performance summary on exit");
+    println!("  --bench-frames <frames>  min 1");
     println!("  --fps <number>           min 1 max 240");
     println!("  --speed <number>         min 0.001 max 1000");
     println!("  --density <number>       min 0.01 max 5.0");

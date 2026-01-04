@@ -863,11 +863,14 @@ impl Cloud {
     }
 
     pub fn rain(&mut self, frame: &mut Frame) {
+        self.rain_at(frame, Instant::now());
+    }
+
+    pub fn rain_at(&mut self, frame: &mut Frame, now: Instant) {
         if self.pause {
             return;
         }
 
-        let now = Instant::now();
         let spawn_scale = (1.0 - (0.75 * self.perf_pressure)).clamp(0.25, 1.0);
         self.spawn_droplets(now, spawn_scale);
 

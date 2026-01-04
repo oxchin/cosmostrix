@@ -1,3 +1,5 @@
 perf.data*
-*release.txt*
 *debug.txt*
+*.log
+*.out
+*.txt

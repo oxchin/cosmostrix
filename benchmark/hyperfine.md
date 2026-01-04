@@ -1,4 +1,4 @@
 | Command | Mean [s] | Min [s] | Max [s] | Relative |
 |:---|---:|---:|---:|---:|
-| `/home/rezky/Desktop/cosmostrix/target/debug/cosmostrix --duration 30` | 30.010 ± 0.001 | 30.010 | 30.011 | 1.00 ± 0.00 |
-| `/home/rezky/Desktop/cosmostrix/target/release/cosmostrix --duration 30` | 30.002 ± 0.000 | 30.002 | 30.002 | 1.00 |
+| `COSMOSTRIX_BENCH_COLS=120 COSMOSTRIX_BENCH_LINES=40 /home/rezky/Desktop/cosmostrix/target/release/cosmostrix --fps 60 --bench-frames 20229` | 2.246 ± 0.154 | 2.136 | 2.423 | 1.10 ± 0.12 |
+| `COSMOSTRIX_BENCH_COLS=120 COSMOSTRIX_BENCH_LINES=40 /home/rezky/Desktop/cosmostrix/target/pro/cosmostrix --fps 60 --bench-frames 20229` | 2.042 ± 0.177 | 1.884 | 2.234 | 1.00 |
