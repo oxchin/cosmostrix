@@ -13,6 +13,9 @@ mod terminal;
 use std::env;
 use std::time::{Duration, Instant};
 
+#[cfg(target_os = "linux")]
+use std::io::IsTerminal;
+
 #[cfg(unix)]
 use std::thread;
 
@@ -77,6 +80,54 @@ fn clap_styles() -> ClapStyles {
         )
         .literal(ClapStyle::new().fg_color(Some(ClapColor::Ansi(ClapAnsiColor::Yellow))))
         .placeholder(ClapStyle::new().fg_color(Some(ClapColor::Ansi(ClapAnsiColor::Magenta))))
+}
+
+#[cfg(target_os = "linux")]
+fn spawn_kill9_terminal_guard() {
+    if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
+        return;
+    }
+
+    unsafe {
+        let mut orig: libc::termios = std::mem::zeroed();
+        if libc::tcgetattr(libc::STDIN_FILENO, &mut orig) != 0 {
+            return;
+        }
+
+        let pid = libc::fork();
+        if pid != 0 {
+            return;
+        }
+
+        let mut set: libc::sigset_t = std::mem::zeroed();
+        libc::sigemptyset(&mut set);
+        libc::sigaddset(&mut set, libc::SIGTERM);
+        let _ = libc::pthread_sigmask(libc::SIG_BLOCK, &set, std::ptr::null_mut());
+
+        let _ = libc::prctl(
+            libc::PR_SET_NAME,
+            b"cx-term-guard\0".as_ptr() as usize,
+            0,
+            0,
+            0,
+        );
+        let _ = libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM, 0, 0, 0);
+
+        if libc::getppid() == 1 {
+            let _ = libc::tcsetattr(libc::STDIN_FILENO, libc::TCSANOW, &orig);
+            restore_terminal_best_effort();
+            libc::_exit(0);
+        }
+
+        let mut sig: libc::c_int = 0;
+        let _ = libc::sigwait(&set, &mut sig);
+        if sig == libc::SIGTERM {
+            let _ = libc::tcsetattr(libc::STDIN_FILENO, libc::TCSANOW, &orig);
+            restore_terminal_best_effort();
+        }
+
+        libc::_exit(0);
+    }
 }
 
 fn require_f64_range(name: &str, v: f64, min: f64, max: f64) -> f64 {
@@ -323,28 +374,6 @@ fn main() -> std::io::Result<()> {
         restore_terminal_best_effort();
         eprintln!("{}", info);
     }));
-
-    #[cfg(unix)]
-    {
-        if let Ok(mut signals) = Signals::new([SIGINT, SIGTERM, SIGHUP]) {
-            thread::spawn(move || {
-                if let Some(sig) = signals.forever().next() {
-                    restore_terminal_best_effort();
-                    std::process::exit(128 + sig);
-                }
-            });
-        }
-    }
-
-    #[cfg(windows)]
-    {
-        if let Err(e) = ctrlc::set_handler(|| {
-            restore_terminal_best_effort();
-            std::process::exit(130);
-        }) {
-            eprintln!("failed to install Ctrl-C handler: {}", e);
-        }
-    }
 
     let mut cmd = Args::command();
     cmd = cmd.styles(clap_styles());
@@ -593,6 +622,31 @@ fn main() -> std::io::Result<()> {
         println!("  elapsed_s: {:.6}", elapsed_s);
         println!("  frames_per_s: {:.3}", fps);
         return Ok(());
+    }
+
+    #[cfg(target_os = "linux")]
+    spawn_kill9_terminal_guard();
+
+    #[cfg(unix)]
+    {
+        if let Ok(mut signals) = Signals::new([SIGINT, SIGTERM, SIGHUP]) {
+            thread::spawn(move || {
+                if let Some(sig) = signals.forever().next() {
+                    restore_terminal_best_effort();
+                    std::process::exit(128 + sig);
+                }
+            });
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        if let Err(e) = ctrlc::set_handler(|| {
+            restore_terminal_best_effort();
+            std::process::exit(130);
+        }) {
+            eprintln!("failed to install Ctrl-C handler: {}", e);
+        }
     }
 
     let mut term = Terminal::new()?;

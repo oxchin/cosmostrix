@@ -141,6 +141,7 @@ dependencies = [
  "clap",
  "crossterm",
  "ctrlc",
+ "libc",
  "rand",
  "signal-hook",
 ]
