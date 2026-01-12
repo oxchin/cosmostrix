@@ -341,6 +341,13 @@ pub struct Args {
     pub check_bitcolor: bool,
 
     #[arg(
+        long = "doctor",
+        help_heading = "HELP",
+        help = "Print compatibility report and exit"
+    )]
+    pub doctor: bool,
+
+    #[arg(
         long = "help-detail",
         help_heading = "HELP",
         help = "Show detailed help for all parameters and exit"
@@ -483,6 +490,14 @@ pub fn print_help_detail() {
         .replace(
             "  --noglitch\n      Disable glitch effects.\n      Example: cosmostrix --noglitch\n",
             "  --noglitch\n      Disable glitch effects (default: on).\n      To enable glitch: --noglitch=false\n      Example: cosmostrix --noglitch=false\n",
+        )
+        .replace(
+            "  --check-bitcolor\n      Print detected terminal color capability and exit.\n      Example: cosmostrix --check-bitcolor\n\n  -m, --message <text>\n",
+            "  --check-bitcolor\n      Print detected terminal color capability and exit.\n      Example: cosmostrix --check-bitcolor\n\n  --doctor\n      Print compatibility report and exit.\n      Example: cosmostrix --doctor\n\n  -m, --message <text>\n",
+        )
+        .replace(
+            "HELP:\n  --check-bitcolor\n      Print detected terminal color capability and exit.\n\n  --help\n",
+            "HELP:\n  --check-bitcolor\n      Print detected terminal color capability and exit.\n\n  --doctor\n      Print compatibility report and exit.\n\n  --help\n",
         );
 
     if color_enabled_stdout() {

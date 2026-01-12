@@ -31,7 +31,7 @@ use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
 #[cfg(unix)]
 use signal_hook::iterator::Signals;
 
-use crate::charset::{build_chars, charset_from_str, parse_user_hex_chars};
+use crate::charset::{build_chars, charset_from_str, parse_user_hex_chars, Charset};
 use crate::cloud::Cloud;
 use crate::config::{
     color_enabled_stdout, default_params_usage_for_help, print_help_detail, print_list_charsets,
@@ -233,6 +233,181 @@ fn color_mode_label(m: ColorMode) -> &'static str {
         ColorMode::Color256 => "8-bit (256-color)",
         ColorMode::Mono => "mono",
         ColorMode::Color16 => "16-color",
+    }
+}
+
+fn print_doctor_report(args: &Args) {
+    let lang = env::var("LANG").unwrap_or_default();
+    let lc_all = env::var("LC_ALL").unwrap_or_default();
+    let lc_ctype = env::var("LC_CTYPE").unwrap_or_default();
+    let term = env::var("TERM").unwrap_or_default();
+    let colorterm = env::var("COLORTERM").unwrap_or_default();
+
+    let stdin_tty = std::io::IsTerminal::is_terminal(&std::io::stdin());
+    let stdout_tty = std::io::IsTerminal::is_terminal(&std::io::stdout());
+
+    let locale_blob = format!("{}{}{}", lc_all, lc_ctype, lang);
+    let locale_utf8 = locale_blob.to_ascii_uppercase().contains("UTF");
+
+    let auto = detect_color_mode_auto();
+    let effective = detect_color_mode(args);
+
+    println!("DOCTOR REPORT:");
+    println!("  stdin_is_tty: {}", if stdin_tty { "yes" } else { "no" });
+    println!("  stdout_is_tty: {}", if stdout_tty { "yes" } else { "no" });
+
+    println!(
+        "  LANG: {}",
+        if lang.is_empty() { "(unset)" } else { &lang }
+    );
+    println!(
+        "  LC_ALL: {}",
+        if lc_all.is_empty() {
+            "(unset)"
+        } else {
+            &lc_all
+        }
+    );
+    println!(
+        "  LC_CTYPE: {}",
+        if lc_ctype.is_empty() {
+            "(unset)"
+        } else {
+            &lc_ctype
+        }
+    );
+    println!("  locale_utf8: {}", if locale_utf8 { "yes" } else { "no" });
+
+    println!(
+        "  TERM: {}",
+        if term.is_empty() { "(unset)" } else { &term }
+    );
+    println!(
+        "  COLORTERM: {}",
+        if colorterm.is_empty() {
+            "(unset)"
+        } else {
+            &colorterm
+        }
+    );
+
+    println!("  color_auto_detected: {}", color_mode_label(auto));
+    if args.colormode.is_some() {
+        println!("  color_forced: {}", color_mode_label(effective));
+    }
+    println!("  color_effective: {}", color_mode_label(effective));
+
+    let def_ascii = default_to_ascii();
+    println!(
+        "  default_to_ascii: {}",
+        if def_ascii { "yes" } else { "no" }
+    );
+
+    let charset_preset = normalize_charset_preset_name(&args.charset);
+    println!(
+        "  charset: {}",
+        if args.charset.is_empty() {
+            "(empty)"
+        } else {
+            &args.charset
+        }
+    );
+    if charset_preset != args.charset {
+        println!("  charset_normalized: {}", charset_preset);
+    }
+    if let Some(spec) = &args.chars {
+        println!("  chars_override: {}", spec);
+    }
+
+    let cs = match charset_from_str(&charset_preset, def_ascii) {
+        Ok(v) => v,
+        Err(e) => {
+            println!("  charset_parse_error: {}", e);
+            Charset::NONE
+        }
+    };
+
+    let uses_katakana = cs.contains(Charset::KATAKANA);
+    let uses_unicode = uses_katakana
+        || cs.contains(Charset::GREEK)
+        || cs.contains(Charset::CYRILLIC)
+        || cs.contains(Charset::HEBREW)
+        || cs.contains(Charset::BRAILLE)
+        || cs.contains(Charset::RUNIC)
+        || cs.contains(Charset::SYMBOLS)
+        || cs.contains(Charset::ARROWS)
+        || cs.contains(Charset::BLOCKS)
+        || cs.contains(Charset::BOXDRAW)
+        || cs.contains(Charset::MINIMAL);
+
+    if locale_utf8 {
+        println!();
+        println!("SAMPLE GLYPHS:");
+        println!("  ascii: 01 ABC abc !@#");
+        if uses_katakana {
+            println!("  katakana: ｱｲｳｴｵｶｷｸｹｺ");
+        }
+        if cs.contains(Charset::GREEK) {
+            println!("  greek: ΩλπΔ");
+        }
+        if cs.contains(Charset::CYRILLIC) {
+            println!("  cyrillic: ЯЖЮШ");
+        }
+        if cs.contains(Charset::HEBREW) {
+            println!("  hebrew: אבגד");
+        }
+        if cs.contains(Charset::BRAILLE) {
+            println!("  braille: ⣿⣷⣯⣟");
+        }
+        if cs.contains(Charset::RUNIC) {
+            println!("  runic: ᚠᚢᚦᚨ");
+        }
+        if cs.contains(Charset::SYMBOLS) {
+            println!("  symbols: ∞∑∫√π");
+        }
+        if cs.contains(Charset::ARROWS) {
+            println!("  arrows: ←→↑↓");
+        }
+        if cs.contains(Charset::BLOCKS) {
+            println!("  blocks: ░▒▓█");
+        }
+        if cs.contains(Charset::BOXDRAW) {
+            println!("  boxdraw: ┌┐└┘─│");
+        }
+        if cs.contains(Charset::MINIMAL) {
+            println!("  minimal: ·•○●◇◆");
+        }
+    }
+
+    println!();
+    println!("ADVICE:");
+    let mut printed = false;
+    if !stdin_tty || !stdout_tty {
+        println!("  - run cosmostrix directly in a terminal (avoid piping/redirect)");
+        printed = true;
+    }
+    if !locale_utf8 {
+        println!("  - locale does not look like UTF-8; unicode charsets may render incorrectly");
+        println!("    try: export LANG=en_US.UTF-8");
+        printed = true;
+    }
+    if effective != ColorMode::TrueColor {
+        println!("  - for best colors use a truecolor terminal (COLORTERM=truecolor)");
+        printed = true;
+    }
+    if uses_unicode {
+        println!(
+            "  - selected charset uses unicode glyphs; if you see □□, change your terminal font"
+        );
+        if uses_katakana {
+            println!("    font suggestions (CJK): Noto Sans CJK JP, Source Han Sans, IPAexGothic");
+        } else {
+            println!("    font suggestions: Noto Sans Mono, DejaVu Sans Mono");
+        }
+        printed = true;
+    }
+    if !printed {
+        println!("  - no issues detected");
     }
 }
 
@@ -463,6 +638,11 @@ fn main() -> std::io::Result<()> {
 
     if args.help_detail {
         print_help_detail();
+        return Ok(());
+    }
+
+    if args.doctor {
+        print_doctor_report(&args);
         return Ok(());
     }
 
