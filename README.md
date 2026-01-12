@@ -204,7 +204,7 @@ Download the package for your OS/arch from Releases, verify the checksum, extrac
 Common examples:
 
 ```bash
-# default settings
+# default settings (async on, glitch off)
 cosmostrix
 
 # color + speed
@@ -213,8 +213,8 @@ cosmostrix --color rainbow --speed 12
 # tune visuals
 cosmostrix --density 1.5 --fps 30 --shadingmode 1 --bold 2
 
-# disable glitching
-cosmostrix --noglitch
+# enable glitching
+cosmostrix --noglitch=false
 
 # screensaver: exit on first keypress
 cosmostrix --screensaver
@@ -235,7 +235,7 @@ cosmostrix --chars 30,39,41,5A
 These flags at (`cosmostrix -h`).
 
 ```text
- -a, --async                  enable async column speeds
+ -a, --async                  async column speeds (default: on; disable with --async=false)
  -b, --bold <NUM>             0=off, 1=random, 2=all
  -c, --color <COLOR>          color scheme (default: green)
      --color-bg <MODE>        background: black, default-background, transparent (default: black)
@@ -250,7 +250,7 @@ These flags at (`cosmostrix -h`).
  -m, --message <TEXT>         overlay message
      --message-no-border      draw message box without border (use with --message; shorthand: -mB)
      --maxdpc <NUM>           max droplets per column (min 1 max 3, default: 3)
-     --noglitch               disable glitch
+     --noglitch               disable glitch (default: on; enable with --noglitch=false)
  -r, --rippct <PCT>           die-early percent (default: 33.33333)
  -S, --speed <NUM>            chars per second (default: 8)
  -s, --screensaver            exit on first keypress
@@ -321,6 +321,8 @@ These hotkeys now work in the main loop (no CLI changes needed):
  ] / +          increase density
  c              cycle to next theme (includes your new space themes)
  C              cycle to previous theme
+ s              cycle to next charset preset
+ S              cycle to previous charset preset
  a              toggle async mode
  Left/Right     change glitch percent
  Tab            toggle shading mode

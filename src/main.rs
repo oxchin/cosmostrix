@@ -296,6 +296,56 @@ fn cycle_color_scheme(current: ColorScheme, dir: i32) -> ColorScheme {
     list[idx as usize]
 }
 
+fn all_charset_presets() -> &'static [&'static str] {
+    &[
+        "auto",
+        "matrix",
+        "ascii",
+        "extended",
+        "english",
+        "digits",
+        "punc",
+        "binary",
+        "hex",
+        "katakana",
+        "greek",
+        "cyrillic",
+        "hebrew",
+        "blocks",
+        "symbols",
+        "arrows",
+        "retro",
+        "cyberpunk",
+        "hacker",
+        "minimal",
+        "code",
+        "dna",
+        "braille",
+        "runic",
+    ]
+}
+
+fn normalize_charset_preset_name(s: &str) -> String {
+    match s.trim().to_ascii_lowercase().as_str() {
+        "bin" | "01" => "binary".to_string(),
+        "dec" | "decimal" => "digits".to_string(),
+        "hexadecimal" => "hex".to_string(),
+        other => other.to_string(),
+    }
+}
+
+fn cycle_charset_preset(current: &str, dir: i32) -> &'static str {
+    let list = all_charset_presets();
+    let Some(pos) = list.iter().position(|&c| c == current) else {
+        return "binary";
+    };
+
+    let n = list.len() as i32;
+    let mut idx = pos as i32 + dir;
+    idx = ((idx % n) + n) % n;
+    list[idx as usize]
+}
+
 fn auto_density_factor(cols: u16, lines: u16, fullwidth: bool) -> f32 {
     let eff_cols = if fullwidth {
         (cols / 2).max(1)
@@ -534,6 +584,8 @@ fn main() -> std::io::Result<()> {
         }
     };
 
+    let mut charset_preset = normalize_charset_preset_name(&args.charset);
+
     let chars = build_chars(charset, &user_ranges, def_ascii);
 
     let density_auto = matches.value_source("density") == Some(ValueSource::DefaultValue);
@@ -743,6 +795,24 @@ fn main() -> std::io::Result<()> {
                             (KeyCode::Char('C'), _) => {
                                 let prev = cycle_color_scheme(cloud.color_scheme(), -1);
                                 cloud.set_color_scheme(prev);
+                            }
+                            (KeyCode::Char('s'), _) => {
+                                let next = cycle_charset_preset(&charset_preset, 1);
+                                charset_preset = next.to_string();
+                                if let Ok(cs) = charset_from_str(&charset_preset, def_ascii) {
+                                    let chars = build_chars(cs, &user_ranges, def_ascii);
+                                    cloud.init_chars(chars);
+                                    cloud.force_draw_everything();
+                                }
+                            }
+                            (KeyCode::Char('S'), _) => {
+                                let prev = cycle_charset_preset(&charset_preset, -1);
+                                charset_preset = prev.to_string();
+                                if let Ok(cs) = charset_from_str(&charset_preset, def_ascii) {
+                                    let chars = build_chars(cs, &user_ranges, def_ascii);
+                                    cloud.init_chars(chars);
+                                    cloud.force_draw_everything();
+                                }
                             }
                             (KeyCode::Char('a'), _) => {
                                 cloud.set_async(!cloud.async_mode);

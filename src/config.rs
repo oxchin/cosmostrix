@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use clap::Parser;
 
-pub const DEFAULT_PARAMS_USAGE: &str = "DEFAULT PARAMS USAGE:\n  cosmostrix --duration 0 --color-bg black --color green --charset binary --fps 60 --speed 8 --density 1 --maxdpc 3 --bold 1 --shadingmode 1 --glitchpct 10 --glitchms 300,400 --lingerms 1,3000 --shortpct 50 --rippct 33.33333";
+pub const DEFAULT_PARAMS_USAGE: &str = "DEFAULT PARAMS USAGE:\n  cosmostrix --duration 0 --async --noglitch --color-bg black --color green --charset binary --fps 60 --speed 8 --density 1 --maxdpc 3 --bold 1 --shadingmode 1 --glitchpct 10 --glitchms 300,400 --lingerms 1,3000 --shortpct 50 --rippct 33.33333";
 
 pub fn color_enabled_stdout() -> bool {
     if std::env::var_os("NO_COLOR").is_some() {
@@ -124,8 +124,12 @@ pub struct Args {
     #[arg(
         short = 'a',
         long = "async",
+        default_value_t = true,
+        action = clap::ArgAction::Set,
+        num_args = 0..=1,
+        default_missing_value = "true",
         help_heading = "GENERAL",
-        help = "Enable async rendering"
+        help = "Async rendering (default: on)"
     )]
     pub async_mode: bool,
 
@@ -264,8 +268,12 @@ pub struct Args {
 
     #[arg(
         long = "noglitch",
+        default_value_t = true,
+        action = clap::ArgAction::Set,
+        num_args = 0..=1,
+        default_missing_value = "true",
         help_heading = "GLITCH (ADVANCED)",
-        help = "Disable glitch effects"
+        help = "Disable glitch effects (default: on)"
     )]
     pub noglitch: bool,
 
@@ -463,9 +471,19 @@ pub fn print_list_colors() {
 
 pub fn print_help_detail() {
     let block = format!(
-        "{}\n\nUSAGE:\n  cosmostrix [OPTIONS]\n\nGENERAL:\n  -a, --async\n      Enable async rendering.\n      Example: cosmostrix -a\n\n  -s, --screensaver\n      Screensaver mode (exit on keypress).\n      Example: cosmostrix -s\n\n  -F, --fullwidth\n      Use full terminal width.\n      Example: cosmostrix -F\n\n  --duration <seconds>\n      Stop after N seconds (min 0.1 max 86400).\n      Example: cosmostrix --duration 10\n\n  --check-bitcolor\n      Print detected terminal color capability and exit.\n      Example: cosmostrix --check-bitcolor\n\n  -m, --message <text>\n      Overlay message.\n      Example: cosmostrix -m \"hello\"\n\nAPPEARANCE:\n  -c, --color <name>\n      Set theme (see --list-colors).\n      Example: cosmostrix --color rainbow\n\n  --colormode <0|8|24>\n      Force color mode; otherwise auto-detected from COLORTERM/TERM.\n      Example: cosmostrix --colormode 24\n\n  -b, --bold <0|1|2>\n      Bold style (0 off, 1 random, 2 all).\n      Example: cosmostrix --bold 2\n\n  -M, --shadingmode <0|1>\n      Shading (0 random, 1 distance-from-head).\n      Example: cosmostrix -M 1\n\n  --color-bg <black|default-background|transparent>\n      Background mode.\n      Example: cosmostrix --color-bg transparent\n\nPERFORMANCE:\n  -f, --fps <number>\n      Target FPS (min 1 max 240).\n      Example: cosmostrix --fps 30\n\n  -S, --speed <number>\n      Characters per second (rain speed) (min 0.001 max 1000).\n      Example: cosmostrix --speed 12\n\n  -d, --density <number>\n      Droplet density (min 0.01 max 5.0).\n      Example: cosmostrix --density 1.25\n\n  --maxdpc <number>\n      Max droplets per column (min 1 max 3).\n      Example: cosmostrix --maxdpc 2\n\n  --perf-stats\n      Print performance statistics summary on exit.\n      Example: cosmostrix --duration 10 --perf-stats\n\nCHARSET:\n  --charset <name>\n      Charset preset (see --list-charsets).\n      Example: cosmostrix --charset binary\n\n  --chars <string>\n      Custom character override (advanced).\n      Example: cosmostrix --chars \"01\"\n\nGLITCH (ADVANCED):\n  --noglitch\n      Disable glitch effects.\n      Example: cosmostrix --noglitch\n\n  -G, --glitchpct <number>\n      Glitch chance in percent (min 0 max 100).\n      Example: cosmostrix --glitchpct 5\n\n  -g, --glitchms <low,high>\n      Glitch duration range in ms (min 1 max 5000).\n      Example: cosmostrix --glitchms 200,500\n\n  -l, --lingerms <low,high>\n      Linger duration range in ms (min 1 max 60000).\n      Example: cosmostrix --lingerms 1,3000\n\n  --shortpct <number>\n      Short droplet chance in percent (min 0 max 100).\n      Example: cosmostrix --shortpct 40\n\n  -r, --rippct <number>\n      Die-early chance in percent (min 0 max 100).\n      Example: cosmostrix --rippct 20\n\nHELP:\n  --check-bitcolor\n      Print detected terminal color capability and exit.\n\n  --help\n      Show short help.\n\n  --help-detail\n      Show this detailed help.\n\n  --list-charsets\n      List available charset presets and exit.\n\n  --list-colors\n      List available color themes and exit.\n\n  -v, --version\n      Print version and exit.\n\n  -i, --info\n      Print version info and exit.\n",
+        "{}\n\nUSAGE:\n  cosmostrix [OPTIONS]\n\nGENERAL:\n  -a, --async\n      Async rendering (default: on).\n      To disable: --async=false\n      Example: cosmostrix --async=false\n\n  -s, --screensaver\n      Screensaver mode (exit on keypress).\n      Example: cosmostrix -s\n\n  -F, --fullwidth\n      Use full terminal width.\n      Example: cosmostrix -F\n\n  --duration <seconds>\n      Stop after N seconds (min 0.1 max 86400).\n      Example: cosmostrix --duration 10\n\n  --check-bitcolor\n      Print detected terminal color capability and exit.\n      Example: cosmostrix --check-bitcolor\n\n  -m, --message <text>\n      Overlay message.\n      Example: cosmostrix -m \"hello\"\n\nAPPEARANCE:\n  -c, --color <name>\n      Set theme (see --list-colors).\n      Example: cosmostrix --color rainbow\n\n  --colormode <0|8|24>\n      Force color mode; otherwise auto-detected from COLORTERM/TERM.\n      Example: cosmostrix --colormode 24\n\n  -b, --bold <0|1|2>\n      Bold style (0 off, 1 random, 2 all).\n      Example: cosmostrix --bold 2\n\n  -M, --shadingmode <0|1>\n      Shading (0 random, 1 distance-from-head).\n      Example: cosmostrix -M 1\n\n  --color-bg <black|default-background|transparent>\n      Background mode.\n      Example: cosmostrix --color-bg transparent\n\nPERFORMANCE:\n  -f, --fps <number>\n      Target FPS (min 1 max 240).\n      Example: cosmostrix --fps 30\n\n  -S, --speed <number>\n      Characters per second (rain speed) (min 0.001 max 1000).\n      Example: cosmostrix --speed 12\n\n  -d, --density <number>\n      Droplet density (min 0.01 max 5.0).\n      Example: cosmostrix --density 1.25\n\n  --maxdpc <number>\n      Max droplets per column (min 1 max 3).\n      Example: cosmostrix --maxdpc 2\n\n  --perf-stats\n      Print performance statistics summary on exit.\n      Example: cosmostrix --duration 10 --perf-stats\n\nCHARSET:\n  --charset <name>\n      Charset preset (see --list-charsets).\n      Example: cosmostrix --charset binary\n\n  --chars <string>\n      Custom character override (advanced).\n      Example: cosmostrix --chars \"01\"\n\nGLITCH (ADVANCED):\n  --noglitch\n      Disable glitch effects (default: on).\n      To enable glitch: --noglitch=false\n      Example: cosmostrix --noglitch=false\n\n  -G, --glitchpct <number>\n      Glitch chance in percent (min 0 max 100).\n      Example: cosmostrix --glitchpct 5\n\n  -g, --glitchms <low,high>\n      Glitch duration range in ms (min 1 max 5000).\n      Example: cosmostrix --glitchms 200,500\n\n  -l, --lingerms <low,high>\n      Linger duration range in ms (min 1 max 60000).\n      Example: cosmostrix --lingerms 1,3000\n\n  --shortpct <number>\n      Short droplet chance in percent (min 0 max 100).\n      Example: cosmostrix --shortpct 40\n\n  -r, --rippct <number>\n      Die-early chance in percent (min 0 max 100).\n      Example: cosmostrix --rippct 20\n\nHELP:\n  --check-bitcolor\n      Print detected terminal color capability and exit.\n\n  --help\n      Show short help.\n\n  --help-detail\n      Show this detailed help.\n\n  --list-charsets\n      List available charset presets and exit.\n\n  --list-colors\n      List available color themes and exit.\n\n  -v, --version\n      Print version and exit.\n\n  -i, --info\n      Print version info and exit.\n",
         DEFAULT_PARAMS_USAGE
     );
+
+    let block = block
+        .replace(
+            "  -a, --async\n      Enable async rendering.\n      Example: cosmostrix -a\n",
+            "  -a, --async\n      Async rendering (default: on).\n      To disable: --async=false\n      Example: cosmostrix --async=false\n",
+        )
+        .replace(
+            "  --noglitch\n      Disable glitch effects.\n      Example: cosmostrix --noglitch\n",
+            "  --noglitch\n      Disable glitch effects (default: on).\n      To enable glitch: --noglitch=false\n      Example: cosmostrix --noglitch=false\n",
+        );
 
     if color_enabled_stdout() {
         print!("{}", colorize_help_detail(&block));
