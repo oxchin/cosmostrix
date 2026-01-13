@@ -259,8 +259,15 @@ These flags at (`cosmostrix -h`).
      --chars <HEX...>         custom unicode hex ranges (pairs)
      --colormode <MODE>       force color mode (0, 8, 24)
      --check-bitcolor         print detected terminal color capability and exit
+     --doctor                 print compatibility report and exit
      --info                   print version info and exit
 ```
+
+## Environment variables
+
+- **`COSMOSTRIX_NO_FORK_GUARD=1`** (Linux only): disables the fork-based SIGKILL (`-9`) terminal guard.
+  - When disabled, killing Cosmostrix with `SIGKILL` may leave your terminal in raw/alt-screen mode.
+  - `0`, `false`, `off`, `no`, or an empty value keeps the guard enabled.
 
 ## Color schemes
 
@@ -314,6 +321,7 @@ These hotkeys now work in the main loop (no CLI changes needed):
 
 ```text
  q / Esc        quit
+ Ctrl+Z         suspend (resume with `fg`)
  p              pause/resume
  Space          reset/reseed animation
  Up / Down      increase/decrease speed (--speed effect)
@@ -324,6 +332,7 @@ These hotkeys now work in the main loop (no CLI changes needed):
  s              cycle to next charset preset
  S              cycle to previous charset preset
  a              toggle async mode
+ g              toggle glitch effects on/off
  Left/Right     change glitch percent
  Tab            toggle shading mode
 

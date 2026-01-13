@@ -513,6 +513,20 @@ pub fn print_help_detail() {
         print!("{}", bench);
     }
 
+    let runtime_keys = "\nRUNTIME KEYS:\n  q / Esc\n      Quit\n  p\n      Pause/resume\n  Ctrl+Z\n      Suspend (resume with: fg)\n  Space\n      Reset/reseed animation\n  Up / Down\n      Increase/decrease speed\n  [ / -\n      Decrease density\n  ] / +\n      Increase density\n  c / C\n      Cycle color theme (next/previous)\n  s / S\n      Cycle charset preset (next/previous)\n  a\n      Toggle async rendering\n  g\n      Toggle glitch effects on/off\n  Left / Right\n      Change glitch percent (when glitch is on)\n  Tab\n      Toggle shading mode\n";
+    if color_enabled_stdout() {
+        print!("{}", colorize_help_detail(runtime_keys));
+    } else {
+        print!("{}", runtime_keys);
+    }
+
+    let env = "\nENVIRONMENT:\n  COSMOSTRIX_NO_FORK_GUARD\n      Linux only. Set to 1/true/on/yes to disable the fork-based SIGKILL (-9) terminal guard.\n      Values 0/false/off/no/empty keep the guard enabled.\n";
+    if color_enabled_stdout() {
+        print!("{}", colorize_help_detail(env));
+    } else {
+        print!("{}", env);
+    }
+
     let tail = "\nVALUE LISTS:\n  cosmostrix --list-charsets\n  cosmostrix --list-colors\n\nMESSAGE BOX:\n  --message-no-border, -mB\n      Draw filled box without border characters\n\nLIMITS / VALID RANGES:\n";
     if color_enabled_stdout() {
         print!("{}", colorize_help_detail(tail));

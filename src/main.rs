@@ -19,6 +19,12 @@ use std::io::IsTerminal;
 #[cfg(unix)]
 use std::thread;
 
+#[cfg(unix)]
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+
 use clap::builder::styling::{AnsiColor as ClapAnsiColor, Color as ClapColor};
 use clap::builder::styling::{Effects as ClapEffects, Style as ClapStyle};
 use clap::builder::Styles as ClapStyles;
@@ -27,9 +33,12 @@ use clap::{CommandFactory, FromArgMatches};
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 
 #[cfg(unix)]
-use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
+use signal_hook::consts::{SIGCONT, SIGHUP, SIGINT, SIGSTOP, SIGTERM, SIGTSTP};
 #[cfg(unix)]
 use signal_hook::iterator::Signals;
+
+#[cfg(unix)]
+use signal_hook::low_level;
 
 use crate::charset::{build_chars, charset_from_str, parse_user_hex_chars, Charset};
 use crate::cloud::Cloud;
@@ -902,12 +911,34 @@ fn main() -> std::io::Result<()> {
     spawn_kill9_terminal_guard();
 
     #[cfg(unix)]
+    let term_reinit = Arc::new(AtomicBool::new(false));
+
+    #[cfg(unix)]
     {
         if let Ok(mut signals) = Signals::new([SIGINT, SIGTERM, SIGHUP]) {
             thread::spawn(move || {
                 if let Some(sig) = signals.forever().next() {
                     restore_terminal_best_effort();
                     std::process::exit(128 + sig);
+                }
+            });
+        }
+
+        let term_reinit = term_reinit.clone();
+        if let Ok(mut signals) = Signals::new([SIGTSTP, SIGCONT]) {
+            thread::spawn(move || {
+                for sig in signals.forever() {
+                    match sig {
+                        SIGTSTP => {
+                            restore_terminal_best_effort();
+                            term_reinit.store(true, Ordering::SeqCst);
+                            let _ = low_level::raise(SIGSTOP);
+                        }
+                        SIGCONT => {
+                            term_reinit.store(true, Ordering::SeqCst);
+                        }
+                        _ => {}
+                    }
                 }
             });
         }
@@ -990,6 +1021,16 @@ fn main() -> std::io::Result<()> {
         }
         let mut pending_resize: Option<(u16, u16)> = None;
 
+        #[cfg(unix)]
+        if term_reinit.swap(false, Ordering::SeqCst) {
+            drop(term);
+            term = Terminal::new()?;
+            let (nw, nh) = term.size()?;
+            pending_resize = Some((nw, nh));
+            cloud.force_draw_everything();
+            next_frame = Instant::now();
+        }
+
         loop {
             while Terminal::poll_event(Duration::from_millis(0))? {
                 let ev = Terminal::read_event()?;
@@ -1006,6 +1047,14 @@ fn main() -> std::io::Result<()> {
                         match (k.code, k.modifiers) {
                             (KeyCode::Esc, _) => cloud.raining = false,
                             (KeyCode::Char('q'), _) => cloud.raining = false,
+                            (KeyCode::Char('z'), KeyModifiers::CONTROL) => {
+                                #[cfg(unix)]
+                                {
+                                    restore_terminal_best_effort();
+                                    term_reinit.store(true, Ordering::SeqCst);
+                                    let _ = low_level::raise(SIGSTOP);
+                                }
+                            }
                             (KeyCode::Char(' '), _) => {
                                 cloud.reset(frame.width, frame.height);
                                 cloud.force_draw_everything();
