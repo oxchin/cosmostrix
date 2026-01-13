@@ -185,9 +185,6 @@ impl Terminal {
         if self.row_dirty.len() != frame.height as usize {
             self.row_dirty = vec![Vec::new(); frame.height as usize];
         }
-        for r in &mut self.row_dirty {
-            r.clear();
-        }
         self.touched_rows.clear();
 
         for &idx in dirty {

@@ -378,6 +378,18 @@ impl Cloud {
         self.recalc_droplets_per_sec();
     }
 
+    pub fn set_glitchy(&mut self, on: bool) {
+        self.glitchy = on;
+        self.fill_glitch_map();
+        if on {
+            let now = Instant::now();
+            self.last_glitch_time = now;
+            let ms = self.rand_glitch_ms.sample(&mut self.mt) as u64;
+            self.next_glitch_time = now + Duration::from_millis(ms);
+        }
+        self.force_draw_everything = true;
+    }
+
     pub fn set_glitch_pct(&mut self, pct: f32) {
         self.glitch_pct = pct;
         self.fill_glitch_map();

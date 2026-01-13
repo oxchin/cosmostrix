@@ -66,6 +66,21 @@ fn build_commit_short() -> Option<&'static str> {
     }
 }
 
+fn env_var_truthy(name: &str) -> bool {
+    match env::var(name) {
+        Ok(v) => {
+            let v = v.trim();
+            if v.is_empty() {
+                return false;
+            }
+            let v = v.to_ascii_lowercase();
+            !(v == "0" || v == "false" || v == "no" || v == "off")
+        }
+        Err(env::VarError::NotPresent) => false,
+        Err(env::VarError::NotUnicode(_)) => true,
+    }
+}
+
 fn clap_styles() -> ClapStyles {
     ClapStyles::styled()
         .header(
@@ -84,6 +99,10 @@ fn clap_styles() -> ClapStyles {
 
 #[cfg(target_os = "linux")]
 fn spawn_kill9_terminal_guard() {
+    if env_var_truthy("COSMOSTRIX_NO_FORK_GUARD") {
+        return;
+    }
+
     if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
         return;
     }
@@ -291,6 +310,19 @@ fn print_doctor_report(args: &Args) {
         }
     );
 
+    #[cfg(target_os = "linux")]
+    {
+        let no_fork_guard = env_var_truthy("COSMOSTRIX_NO_FORK_GUARD");
+        println!(
+            "  fork_guard: {}",
+            if no_fork_guard {
+                "disabled (COSMOSTRIX_NO_FORK_GUARD)"
+            } else {
+                "enabled"
+            }
+        );
+    }
+
     println!("  color_auto_detected: {}", color_mode_label(auto));
     if args.colormode.is_some() {
         println!("  color_forced: {}", color_mode_label(effective));
@@ -405,6 +437,16 @@ fn print_doctor_report(args: &Args) {
             println!("    font suggestions: Noto Sans Mono, DejaVu Sans Mono");
         }
         printed = true;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if env_var_truthy("COSMOSTRIX_NO_FORK_GUARD") {
+            println!(
+                "  - fork-based SIGKILL terminal guard is disabled; SIGKILL (-9) may leave your terminal broken"
+            );
+            printed = true;
+        }
     }
     if !printed {
         println!("  - no issues detected");
@@ -996,6 +1038,9 @@ fn main() -> std::io::Result<()> {
                             }
                             (KeyCode::Char('a'), _) => {
                                 cloud.set_async(!cloud.async_mode);
+                            }
+                            (KeyCode::Char('g'), _) => {
+                                cloud.set_glitchy(!cloud.glitchy);
                             }
                             (KeyCode::Char('p'), _) => {
                                 cloud.toggle_pause();
