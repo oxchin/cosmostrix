@@ -10,31 +10,31 @@
 # - Powered by T-800 automation
 
 name: "T-800 - Auto Update Dependencies"
-
-'on':
-  schedule:
-    - cron: "0 1 * * *"  # 08:00 WIB daily
-  workflow_dispatch:
-    inputs:
-      strategy:
-        description: "How to publish updates"
-        type: choice
-        options:
-          - direct
-          - pr
-        default: direct
-      force_update:
-        description: "Continue even if tests fail"
-        type: boolean
-        default: false
-      update_workflows:
-        description: "Also update GitHub Actions versions"
-        type: boolean
-        default: true
-      allow_major_updates:
-        description: "Allow major version updates for GitHub Actions"
-        type: boolean
-        default: false
+# Disable
+#'on':
+#  schedule:
+#    - cron: "0 1 * * *"  # 08:00 WIB daily
+#  workflow_dispatch:
+#    inputs:
+#      strategy:
+#        description: "How to publish updates"
+#        type: choice
+#        options:
+#          - direct
+#          - pr
+#        default: direct
+#      force_update:
+#        description: "Continue even if tests fail"
+#        type: boolean
+#        default: false
+#      update_workflows:
+#        description: "Also update GitHub Actions versions"
+#        type: boolean
+#        default: true
+#      allow_major_updates:
+#        description: "Allow major version updates for GitHub Actions"
+#        type: boolean
+#        default: false
 
 permissions:
   contents: write
